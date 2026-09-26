@@ -1,98 +1,112 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { useRouter } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function HomeScreen() {
+  const router = useRouter();
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <View style={styles.container}>
+      <Text style={styles.logo}>JAGO</Text>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      <Text style={styles.greeting}>Welcome, Student 👋</Text>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+      <Text style={styles.subtitle}>
+        Your unified scholarship assistant
+      </Text>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Scholarship Status</Text>
+        <Text style={styles.cardText}>
+          You currently have 1 scholarship application in progress.
+        </Text>
+
+        <Pressable 
+          style={styles.button}
+          onPress={() => router.push('/scholarship')}
+        >
+          <Text style={styles.buttonText}>View Application</Text>
+        </Pressable>
+
+        <Pressable 
+          style={[styles.button, styles.secondaryButton]}
+          onPress={() => router.push('/scholarships')}
+        >
+          <Text style={styles.buttonText}>Browse Scholarships</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Need Help?</Text>
+        <Text style={styles.cardText}>
+          Ask JAGO about eligibility, documents, or your application status.
+        </Text>
+
+        <Pressable style={styles.button}>
+          <Text style={styles.buttonText}>Ask JAGO</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    padding: 24,
+    paddingTop: 70,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
+
+  logo: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 30,
+    color: '#ffffff',
+  },
+
+  greeting: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#ffffff',
+  },
+
+  subtitle: {
+    fontSize: 16,
+    marginBottom: 30,
+    color: '#cccccc',
+  },
+
+  card: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    backgroundColor: '#eeeeee',
+  },
+
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+
+  cardText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+
+  button: {
+    padding: 14,
+    borderRadius: 10,
+    backgroundColor: '#222222',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+
+  secondaryButton: {
+    marginTop: 10,
   },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
