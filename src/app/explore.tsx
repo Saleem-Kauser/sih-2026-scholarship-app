@@ -1,21 +1,16 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Badge, Card, ScreenHeader, SectionHeader } from '@/components/ui';
 import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, SpacingTokens as Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export default function TabTwoScreen() {
+export default function ExploreScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const insets = {
     ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
+    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.base,
   };
   const theme = useTheme();
 
@@ -27,154 +22,133 @@ export default function TabTwoScreen() {
       paddingBottom: insets.bottom,
     },
     web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
+      paddingTop: Spacing.lg,
+      paddingBottom: Spacing.base,
+    },
+    ios: {
+      paddingTop: insets.top,
+      paddingBottom: insets.bottom,
     },
   });
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <ScreenHeader title="Explore & Guidelines" showBorder />
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
-        </ThemedView>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.container}>
+          <SectionHeader
+            title="Scholarship Knowledge Base"
+            subtitle="Important information regarding eligibility, applications, and rules"
+            marginBottom={Spacing.base}
+          />
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+          <View style={styles.sectionsWrapper}>
+            {/* Eligibility Section */}
+            <Card variant="outlined" padding={Spacing.base}>
+              <Collapsible title="Eligibility Requirements">
+                <Text style={[Typography.body, { color: theme.textSecondary, marginTop: Spacing.xs }]}>
+                  Scholarships on JAGO are open to eligible tribal and post-matric students based on income and academic criteria.
+                </Text>
+                <View style={styles.bulletList}>
+                  <Text style={[Typography.small, { color: theme.text, marginTop: Spacing.xs }]}>
+                    • Pre-Matric & Post-Matric ST Schemes
+                  </Text>
+                  <Text style={[Typography.small, { color: theme.text, marginTop: Spacing.xs }]}>
+                    • Annual family income within government prescribed limits
+                  </Text>
+                  <Text style={[Typography.small, { color: theme.text, marginTop: Spacing.xs }]}>
+                    • Domicile requirement for state-specific schemes
+                  </Text>
+                </View>
+              </Collapsible>
+            </Card>
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
+            {/* Required Documents */}
+            <Card variant="outlined" padding={Spacing.base}>
+              <Collapsible title="Required Documents Checklist">
+                <Text style={[Typography.body, { color: theme.textSecondary, marginTop: Spacing.xs }]}>
+                  Keep scanned copies of the following documents ready before starting your application:
+                </Text>
+                <View style={styles.badgeRow}>
+                  <Badge label="Aadhaar Card" variant="info" size="sm" />
+                  <Badge label="Community Cert" variant="info" size="sm" />
+                  <Badge label="Income Cert" variant="info" size="sm" />
+                  <Badge label="Marksheet" variant="info" size="sm" />
+                  <Badge label="Bank Passbook" variant="info" size="sm" />
+                </View>
+              </Collapsible>
+            </Card>
 
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+            {/* Application Flow */}
+            <Card variant="outlined" padding={Spacing.base}>
+              <Collapsible title="Application Journey & Stages">
+                <Text style={[Typography.body, { color: theme.textSecondary, marginTop: Spacing.xs }]}>
+                  Every submitted application progresses through 4 stages:
+                </Text>
+                <View style={styles.bulletList}>
+                  <Text style={[Typography.small, { color: theme.text, marginTop: Spacing.xs }]}>
+                    1. <Text style={Typography.smallBold}>Submission:</Text> Form successfully uploaded
+                  </Text>
+                  <Text style={[Typography.small, { color: theme.text, marginTop: Spacing.xs }]}>
+                    2. <Text style={Typography.smallBold}>Verification:</Text> Institutional & district verification
+                  </Text>
+                  <Text style={[Typography.small, { color: theme.text, marginTop: Spacing.xs }]}>
+                    3. <Text style={Typography.smallBold}>Sanction:</Text> Scholarship amount approved
+                  </Text>
+                  <Text style={[Typography.small, { color: theme.text, marginTop: Spacing.xs }]}>
+                    4. <Text style={Typography.smallBold}>Disbursement:</Text> Funds transferred via DBT
+                  </Text>
+                </View>
+              </Collapsible>
+            </Card>
 
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+            {/* Help & Support */}
+            <Card variant="outlined" padding={Spacing.base}>
+              <Collapsible title="Need Support?">
+                <Text style={[Typography.body, { color: theme.textSecondary, marginTop: Spacing.xs }]}>
+                  If you encounter issues with document verification or bank mapping, contact the nodal officer at your institute or reach out through the official portal.
+                </Text>
+              </Collapsible>
+            </Card>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.base,
   },
   container: {
     maxWidth: MaxContentWidth,
-    flexGrow: 1,
-  },
-  titleContainer: {
-    gap: Spacing.three,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
-  },
-  centerText: {
-    textAlign: 'center',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
+    width: '100%',
+    paddingVertical: Spacing.base,
   },
   sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    gap: Spacing.md,
   },
-  collapsibleContent: {
-    alignItems: 'center',
+  bulletList: {
+    marginTop: Spacing.xs,
   },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
-  },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
   },
 });

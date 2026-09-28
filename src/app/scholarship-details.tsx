@@ -1,10 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -99,13 +99,32 @@ export default function ScholarshipDetailsScreen() {
           <Text style={styles.portalText}>{scheme.portal}</Text>
         </View>
 
+        {/* Application Action */}
+        <View style={styles.applySection}>
+          <TouchableOpacity
+            style={styles.applyButton}
+            onPress={() =>
+              router.push({
+                pathname: '/apply',
+                params: { schemeId: scheme.id },
+              })
+            }
+            activeOpacity={0.8}
+          >
+            <Text style={styles.applyButtonText}>Apply Now</Text>
+          </TouchableOpacity>
+          <Text style={styles.applySupportingText}>
+            Apply through JAGO and manage your application in one place.
+          </Text>
+        </View>
+
         {/* JAGO Prototype Notice */}
         <View style={[styles.card, styles.prototypeCard]}>
           <Text style={styles.prototypeTitle}>JAGO Prototype</Text>
           <Text style={styles.prototypeText}>
             Unified tracking is a prototype feature for demonstration purposes and does NOT mean JAGO has live access to the government portal.
           </Text>
-          {scheme.trackingAvailability && (
+          {(scheme as any).trackingAvailability && (
             <View style={styles.trackingBadge}>
               <Text style={styles.trackingBadgeText}>
                 Unified tracking is supported in the JAGO prototype.
@@ -269,6 +288,26 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+  },
+  applySection: {
+    marginBottom: 12,
+  },
+  applyButton: {
+    backgroundColor: '#1d4ed8',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  applySupportingText: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: 8,
   },
   prototypeCard: {
     backgroundColor: '#eff6ff',

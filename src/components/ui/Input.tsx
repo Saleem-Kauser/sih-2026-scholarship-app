@@ -4,26 +4,14 @@ import { BorderRadius, SpacingTokens as Spacing, Typography } from '@/constants/
 import { useTheme } from '@/hooks/use-theme';
 
 export interface InputProps extends TextInputProps {
-  /** Label text displayed above input */
   label?: string;
-  /** Placeholder text */
   placeholder?: string;
-  /** Error message displayed below input */
   error?: string;
-  /** Help text displayed below input (when no error) */
   hint?: string;
-  /** Whether field is required */
   required?: boolean;
-  /** Input size */
   size?: 'sm' | 'md' | 'lg';
 }
 
-/**
- * JAGO Input Component
- * 
- * Text input field with optional label, error states, and help text.
- * Respects theme colors and provides accessible styling.
- */
 export function Input({
   label,
   placeholder,
@@ -63,12 +51,11 @@ export function Input({
   };
 
   const sizeStyles = getSizeStyles();
-
-  const borderColor = hasError ? theme.error : editable ? theme.border : theme.borderStrong;
+  const borderColor = hasError ? theme.error : editable ? theme.borderStrong : theme.border;
 
   const inputStyle: any = {
-    color: editable ? theme.text : theme.textTertiary,
-    backgroundColor: editable ? theme.background : theme.backgroundElement,
+    color: editable ? theme.text : theme.textSecondary,
+    backgroundColor: editable ? (theme.backgroundElement || '#FFFFFF') : theme.backgroundSecondary,
     borderColor,
     borderWidth: 1,
     borderRadius: BorderRadius.md,
@@ -108,7 +95,7 @@ export function Input({
           style={[
             Typography.xs,
             {
-              color: error ? theme.error : theme.textTertiary,
+              color: error ? theme.error : theme.textSecondary,
               marginTop: Spacing.xs,
             },
           ]}

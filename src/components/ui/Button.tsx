@@ -7,32 +7,17 @@ export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'destructive'
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps {
-  /** Button text content */
   label: string;
-  /** Variant style: primary (filled), secondary (outlined), tertiary (text), destructive (red) */
   variant?: ButtonVariant;
-  /** Button size */
   size?: ButtonSize;
-  /** Callback when button is pressed */
   onPress?: () => void;
-  /** Whether button is disabled */
   disabled?: boolean;
-  /** Whether button is in loading state */
   loading?: boolean;
-  /** Full width button */
   fullWidth?: boolean;
-  /** Custom text color (overrides variant) */
   textColor?: string;
-  /** Additional styles */
   style?: any;
 }
 
-/**
- * JAGO Button Component
- * 
- * Reusable button with multiple variants for different use cases.
- * Automatically respects theme colors and provides feedback states.
- */
 export function Button({
   label,
   variant = 'primary',
@@ -82,8 +67,8 @@ export function Button({
         };
       case 'secondary':
         return {
-          backgroundColor: theme.backgroundElement,
-          borderColor: theme.border,
+          backgroundColor: '#ffffff',
+          borderColor: theme.borderStrong || theme.border,
           borderWidth: 1,
           textColor: theme.text,
         };

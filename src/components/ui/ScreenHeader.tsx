@@ -1,129 +1,84 @@
-import { useRouter } from 'expo-router';
+// src/components/ui/ScreenHeader.tsx
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SpacingTokens as Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface ScreenHeaderProps {
-  /** Title text */
   title: string;
-  /** Whether to show back button */
-  showBackButton?: boolean;
-  /** Custom back button callback (overrides default router.back()) */
   onBackPress?: () => void;
-  /** Right-side content (e.g., help icon, menu button) */
+  showBackButton?: boolean;
   rightContent?: React.ReactNode;
-  /** Whether to show border at bottom */
   showBorder?: boolean;
 }
 
-/**
- * JAGO ScreenHeader Component
- * 
- * Standard header for screens with title and optional back button.
- * Handles safe area automatically.
- */
 export function ScreenHeader({
   title,
-  showBackButton = true,
   onBackPress,
+  showBackButton = false,
   rightContent,
   showBorder = true,
 }: ScreenHeaderProps) {
   const theme = useTheme();
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-
-  const handleBackPress = () => {
-    if (onBackPress) {
-      onBackPress();
-    } else {
-      router.back();
-    }
-  };
 
   return (
     <View
       style={[
         styles.container,
         {
-          paddingTop: Math.max(insets.top + Spacing.sm, Spacing.base),
-          backgroundColor: theme.background,
-          borderBottomColor: showBorder ? theme.border : 'transparent',
+          backgroundColor: '#FFFFFF',
+          borderBottomWidth: showBorder ? 1 : 0,
+          borderBottomColor: theme.border,
         },
       ]}
     >
-      <View
-        style={[
-          styles.content,
-          {
-            paddingHorizontal: Spacing.base,
-            paddingBottom: Spacing.base,
-          },
-        ]}
-      >
-        <View style={styles.leftSection}>
-          {showBackButton && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.backButton,
-                pressed && { opacity: 0.7 },
-              ]}
-              onPress={handleBackPress}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={[Typography.bodyBold, { color: theme.primary }]}>
-                ← Back
-              </Text>
-            </Pressable>
-          )}
-        </View>
-
-        <View style={styles.centerSection}>
-          <Text
-            style={[Typography.h5, { color: theme.text }]}
-            numberOfLines={1}
+      <View style={styles.leftSection}>
+        {showBackButton && (
+          <Pressable
+            onPress={onBackPress}
+            style={styles.backButton}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            {title}
-          </Text>
-        </View>
-
-        <View style={styles.rightSection}>
-          {rightContent}
-        </View>
+            <Text style={[Typography.bodyBold, { color: theme.primary }]}>←</Text>
+          </Pressable>
+        )}
+        <Text
+          style={[
+            Typography.h5,
+            {
+              color: theme.text,
+            },
+          ]}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
       </View>
+
+      {rightContent && <View style={styles.rightSection}>{rightContent}</View>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    borderBottomWidth: 1,
-  },
-  content: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 44,
+    paddingHorizontal: Spacing.base,
   },
   leftSection: {
-    flex: 0.3,
-    justifyContent: 'center',
-  },
-  centerSection: {
-    flex: 1,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: Spacing.sm,
-  },
-  rightSection: {
-    flex: 0.3,
-    justifyContent: 'center',
-    alignItems: 'flex-end',
+    flex: 1,
   },
   backButton: {
-    paddingVertical: Spacing.xs,
-    paddingRight: Spacing.sm,
+    marginRight: Spacing.sm,
+    paddingRight: Spacing.xs,
+  },
+  rightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });

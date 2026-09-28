@@ -34,18 +34,10 @@ export function StatusBadge({
   variant = 'outlined',
   size = 'md',
 }: StatusBadgeProps) {
-  const statusColors = StatusColors.light[status];
+  const statusColors = StatusColors[status] || StatusColors.submitted;
 
-  const getStatusLabel = (status: ApplicationStatus) => {
-    const labels: Record<ApplicationStatus, string> = {
-      submitted: 'Submitted',
-      under_verification: 'Under Verification',
-      action_required: 'Action Required',
-      sanctioned: 'Sanctioned',
-      disbursed: 'Disbursed',
-      rejected: 'Rejected',
-    };
-    return labels[status];
+  const getStatusLabel = (statusKey: ApplicationStatus) => {
+    return statusColors.label || statusKey;
   };
 
   const getSizeStyles = () => {
@@ -84,10 +76,10 @@ export function StatusBadge({
   };
 
   if (variant === 'filled') {
-    containerStyle.backgroundColor = statusColors.badge;
+    containerStyle.backgroundColor = statusColors.badge || statusColors.text;
     containerStyle.borderWidth = 0;
   } else {
-    containerStyle.backgroundColor = statusColors.background;
+    containerStyle.backgroundColor = statusColors.bg;
     containerStyle.borderWidth = 1;
     containerStyle.borderColor = statusColors.border;
   }
@@ -101,7 +93,7 @@ export function StatusBadge({
         style={[
           styles.dot,
           {
-            backgroundColor: statusColors.badge,
+            backgroundColor: statusColors.badge || statusColors.text,
             marginRight: size === 'sm' ? 0 : Spacing.xs,
           },
         ]}
