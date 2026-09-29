@@ -1,25 +1,28 @@
+import { initialApplications, initialStudentDocuments } from '@/data/mockApplicationData';
+import type { ScholarshipApplicationItem, StudentDocument } from '@/types/verification';
+
+type ApplicationStoreListener = () => void;
+const listeners = new Set<ApplicationStoreListener>();
+let storeVersion = 0;
+
+function notifyStoreChanged() {
+  storeVersion += 1;
+  listeners.forEach((listener) => listener());
+}
+
+export function subscribeApplicationStore(listener: ApplicationStoreListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function getApplicationStoreVersion(): number {
+  return storeVersion;
+}
+
 /**
  * TEMPORARY APPLICATION STATE STORE
  * 
- * This is a lightweight in-memory store for the JAGO prototype.
- * 
- * PURPOSE:
- * - Avoid passing large objects through URL parameters
- * - Maintain form state across navigation steps
- * - Act as a placeholder for proper state management
- * 
- * PRODUCTION REPLACEMENT:
- * This should be replaced with one of:
- * - Redux / Redux Toolkit
- * - Zustand
- * - Jotai / Recoil
- * - Context API with proper provider architecture
- * - Backend API with session/user state
- * 
- * LIFECYCLE:
- * - Data persists in memory during the application flow
- * - Should be cleared when the user completes submission or exits
- * - Data is NOT persisted across app restarts (by design, for prototype)
+ * Extended for JAGO SIH 2026 connected prototype.
  */
 
 export interface StudentInfo {
@@ -37,10 +40,51 @@ export interface StudentInfo {
 export interface ApplicationState {
   schemeId?: string;
   studentInfo?: StudentInfo;
+  applications?: ScholarshipApplicationItem[];
+  documents?: StudentDocument[];
 }
 
-// In-memory store
-let state: ApplicationState = {};
+function documentKey(document: Pick<StudentDocument, 'name' | 'type'>): string {
+  const value = `${document.name} ${document.type}`.toLowerCase();
+
+  if (value.includes('income')) return 'income-certificate';
+  if (value.includes('domicile') || value.includes('residence')) return 'domicile-certificate';
+  if (value.includes('caste') || value.includes('community') || value.includes('scheduled tribe') || value.includes('st certificate')) {
+    return 'st-certificate';
+  }
+
+  return value.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+export function getStableDocumentId(documentType: string): string {
+  return `doc-${documentKey({ name: documentType, type: documentType })}`;
+}
+
+function deriveApplicationStatus(documents: StudentDocument[]): ScholarshipApplicationItem['status'] {
+  if (documents.some((document) => document.status === 'manual_review' || document.status === 'failed')) {
+    return 'action_required';
+  }
+
+  if (documents.length > 0 && documents.every((document) => document.status === 'verified')) {
+    return 'sanction_pending';
+  }
+
+  return 'under_verification';
+}
+
+// Global prototype in-memory state initialized with demo records
+let state: ApplicationState = {
+  applications: [...initialApplications],
+  documents: [...initialStudentDocuments],
+};
+
+let applicationSequence = 1;
+
+export function createApplicationId(): string {
+  const id = `JAGO-2026-${String(applicationSequence).padStart(6, '0')}`;
+  applicationSequence += 1;
+  return id;
+}
 
 /**
  * Get current application state
@@ -54,6 +98,7 @@ export function getApplicationState(): ApplicationState {
  */
 export function updateApplicationState(updates: Partial<ApplicationState>) {
   state = { ...state, ...updates };
+  notifyStoreChanged();
 }
 
 /**
@@ -61,6 +106,7 @@ export function updateApplicationState(updates: Partial<ApplicationState>) {
  */
 export function setStudentInfo(info: StudentInfo) {
   state.studentInfo = info;
+  notifyStoreChanged();
 }
 
 /**
@@ -75,6 +121,7 @@ export function getStudentInfo(): StudentInfo | undefined {
  */
 export function setSchemeId(schemeId: string) {
   state.schemeId = schemeId;
+  notifyStoreChanged();
 }
 
 /**
@@ -85,8 +132,131 @@ export function getSchemeId(): string | undefined {
 }
 
 /**
- * Clear all application state (call when exiting flow or on successful submission)
+ * Get all student document wallet items
+ */
+export function getStudentDocuments(): StudentDocument[] {
+  return state.documents || initialStudentDocuments;
+}
+
+/**
+ * Get all active scholarship applications
+ */
+export function getApplications(): ScholarshipApplicationItem[] {
+  return state.applications || initialApplications;
+}
+
+/** Add or replace wallet records and synchronize copies held by applications. */
+export function upsertStudentDocuments(documents: StudentDocument[]) {
+  const currentDocuments = state.documents || [];
+  const mergedDocuments = [...currentDocuments];
+
+  for (const document of documents) {
+    const existingIndex = mergedDocuments.findIndex((item) => documentKey(item) === documentKey(document));
+    if (existingIndex === -1) {
+      mergedDocuments.push({ ...document, id: getStableDocumentId(document.type) });
+    } else {
+      mergedDocuments[existingIndex] = {
+        ...mergedDocuments[existingIndex],
+        ...document,
+        id: mergedDocuments[existingIndex].id,
+      };
+    }
+  }
+
+  state.documents = mergedDocuments;
+
+  if (state.applications) {
+    state.applications = state.applications.map((application) => {
+      const documentsForApplication = application.documents.map((document) =>
+        mergedDocuments.find((item) => documentKey(item) === documentKey(document)) || document
+      );
+      const status = deriveApplicationStatus(documentsForApplication);
+
+      return {
+        ...application,
+        documents: documentsForApplication,
+        status,
+        pendingAction: status === 'action_required'
+          ? 'One or more documents require manual verifier review.'
+          : status === 'sanction_pending'
+          ? 'All required documents verified. Application pending final sanction.'
+          : application.pendingAction,
+      };
+    });
+  }
+
+  notifyStoreChanged();
+}
+
+/**
+ * Add a newly submitted application to store
+ */
+export function addApplication(app: ScholarshipApplicationItem) {
+  const status = deriveApplicationStatus(app.documents);
+  state.applications = [{
+    ...app,
+    status,
+    pendingAction: status === 'action_required'
+      ? 'One or more documents require manual verifier review.'
+      : status === 'sanction_pending'
+      ? 'All required documents verified. Application pending final sanction.'
+      : app.pendingAction,
+  }, ...(state.applications || [])];
+  notifyStoreChanged();
+}
+
+/**
+ * Approve a document under manual review (Verifier Action)
+ */
+export function approveDocumentManualReview(docId: string) {
+  if (state.documents) {
+    state.documents = state.documents.map((d) =>
+      d.id === docId
+        ? {
+            ...d,
+            status: 'verified' as const,
+            lastVerificationResult: 'Approved via Verifier Manual Review Dashboard',
+            manualReviewReason: undefined,
+          }
+        : d
+    );
+  }
+
+  if (state.applications) {
+    state.applications = state.applications.map((app) => {
+      const documents = app.documents.map((d) =>
+        d.id === docId
+          ? {
+              ...d,
+              status: 'verified' as const,
+              lastVerificationResult: 'Approved via Verifier Manual Review Dashboard',
+              manualReviewReason: undefined,
+            }
+          : d
+      );
+      const status = deriveApplicationStatus(documents);
+
+      return {
+        ...app,
+        documents,
+        status,
+        pendingAction: status === 'action_required'
+          ? 'One or more documents require manual verifier review.'
+          : 'All required documents verified. Application pending final sanction.',
+      };
+    });
+  }
+
+  notifyStoreChanged();
+}
+
+/**
+ * Clear all application state
  */
 export function clearApplicationState() {
-  state = {};
+  state = {
+    applications: [...initialApplications],
+    documents: [...initialStudentDocuments],
+  };
+  notifyStoreChanged();
 }

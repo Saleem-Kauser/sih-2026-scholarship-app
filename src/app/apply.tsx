@@ -298,7 +298,7 @@ export default function ApplyScreen() {
       setSchemeId(schemeId!);
 
       router.push({
-        pathname: '/apply/documents' as any,
+        pathname: '/apply-documents' as any,
         params: { schemeId },
       });
     }

@@ -4,6 +4,7 @@ export type ApplicationStatus =
   | 'submitted'
   | 'under_verification'
   | 'action_required'
+  | 'sanction_pending'
   | 'sanctioned'
   | 'disbursed'
   | 'rejected';
@@ -96,6 +97,8 @@ export const Colors = {
   },
 };
 
+export type ThemeColor = keyof typeof Colors.light;
+
 export const StatusColors: Record<
   ApplicationStatus,
   { bg: string; text: string; border: string; label: string; badge: string }
@@ -119,6 +122,13 @@ export const StatusColors: Record<
     text: '#B45309',
     border: '#FDE68A',
     label: 'Action Required',
+    badge: '#B45309',
+  },
+  sanction_pending: {
+    bg: '#FFFBEB',
+    text: '#B45309',
+    border: '#FDE68A',
+    label: 'Sanction Pending',
     badge: '#B45309',
   },
   sanctioned: {

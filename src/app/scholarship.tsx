@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useSyncExternalStore } from 'react';
 import {
     Platform,
     ScrollView,
@@ -9,20 +10,53 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BottomNavBar } from '@/components/ui';
+import { getApplicationStoreVersion, getApplications, subscribeApplicationStore } from '@/utils/applicationStore';
+
 interface ProgressStage {
   name: string;
   status: 'completed' | 'current' | 'pending';
+}
+
+function getStatusPresentation(status: ReturnType<typeof getApplications>[number]['status']) {
+  switch (status) {
+    case 'action_required':
+      return { label: 'Manual Review Required', currentStage: 1 };
+    case 'sanction_pending':
+      return { label: 'Sanction Pending', currentStage: 2 };
+    case 'sanctioned':
+      return { label: 'Sanctioned', currentStage: 3 };
+    case 'disbursed':
+      return { label: 'Disbursed', currentStage: 4 };
+    case 'rejected':
+      return { label: 'Rejected', currentStage: 1 };
+    default:
+      return { label: 'Under Verification', currentStage: 1 };
+  }
 }
 
 export default function ScholarshipScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  useSyncExternalStore(subscribeApplicationStore, getApplicationStoreVersion, getApplicationStoreVersion);
+  const applications = getApplications();
+  const currentApp = applications[0] || {
+    id: 'JAGO-2026-00124',
+    schemeShortName: 'Post-Matric Scholarship',
+    appliedDate: '18 September 2026',
+    status: 'under_verification',
+    pendingAction: 'Domicile Certificate requires manual verifier review.',
+    disbursementStatus: 'Pending Verification',
+  };
+
+  const statusPresentation = getStatusPresentation(currentApp.status);
+
   const stages: ProgressStage[] = [
-    { name: 'Submitted', status: 'completed' },
-    { name: 'Document Verification', status: 'current' },
-    { name: 'Sanction', status: 'pending' },
-    { name: 'Disbursement', status: 'pending' },
+    { name: 'Submitted', status: statusPresentation.currentStage > 0 ? 'completed' : 'current' },
+    { name: 'Document Verification', status: statusPresentation.currentStage > 1 ? 'completed' : 'current' },
+    { name: 'Sanction', status: statusPresentation.currentStage > 2 ? 'completed' : statusPresentation.currentStage === 2 ? 'current' : 'pending' },
+    { name: 'Disbursement', status: statusPresentation.currentStage >= 4 ? 'completed' : statusPresentation.currentStage === 3 ? 'current' : 'pending' },
   ];
 
   return (
@@ -62,14 +96,14 @@ export default function ScholarshipScreen() {
 
           <View style={styles.infoRow}>
             <Text style={styles.label}>Scheme</Text>
-            <Text style={styles.value}>Post-Matric Scholarship</Text>
+            <Text style={styles.value}>{currentApp.schemeShortName}</Text>
           </View>
 
           <View style={styles.divider} />
 
           <View style={styles.infoRow}>
             <Text style={styles.label}>Application ID</Text>
-            <Text style={[styles.value, styles.monoValue]}>JAGO-2026-00124</Text>
+            <Text style={[styles.value, styles.monoValue]}>{currentApp.id}</Text>
           </View>
 
           <View style={styles.divider} />
@@ -78,7 +112,7 @@ export default function ScholarshipScreen() {
             <Text style={styles.label}>Application Status</Text>
             <View style={styles.statusBadge}>
               <View style={styles.statusDot} />
-              <Text style={styles.statusBadgeText}>Under Verification</Text>
+              <Text style={styles.statusBadgeText}>{statusPresentation.label}</Text>
             </View>
           </View>
 
@@ -86,13 +120,13 @@ export default function ScholarshipScreen() {
 
           <View style={styles.infoRow}>
             <Text style={styles.label}>Application Date</Text>
-            <Text style={styles.value}>18 September 2026</Text>
+            <Text style={styles.value}>{currentApp.appliedDate}</Text>
           </View>
         </View>
 
         {/* Application Progress Section */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Application Progress</Text>
+          <Text style={styles.sectionTitle}>Application Progress Timeline</Text>
 
           <View style={styles.timelineContainer}>
             {stages.map((stage, index) => {
@@ -177,8 +211,16 @@ export default function ScholarshipScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Pending Action</Text>
           <Text style={styles.cardSubtitle}>
-            No action required from you at this stage.
+            {currentApp.pendingAction || 'No action required from student at this stage.'}
           </Text>
+
+          <TouchableOpacity
+            style={styles.adminShortcut}
+            onPress={() => router.push('/admin')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.adminShortcutText}>⚙️ Open Verifier Admin Dashboard (Demo)</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Disbursement Status Card */}
@@ -189,7 +231,11 @@ export default function ScholarshipScreen() {
               <Text style={styles.amberBadgeText}>Pending</Text>
             </View>
           </View>
-          <Text style={styles.cardSubtitle}>Pending verification.</Text>
+          <Text style={styles.cardSubtitle}>
+            {currentApp.status === 'disbursed'
+              ? 'Disbursement recorded in this prototype.'
+              : 'Future sanction and disbursement stages are not connected to live government systems.'}
+          </Text>
         </View>
 
         {/* Disclaimer Notice */}
@@ -197,6 +243,9 @@ export default function ScholarshipScreen() {
           Demo Data: This record is sample data for demonstration purposes and is not connected to a live government scholarship portal.
         </Text>
       </ScrollView>
+
+      {/* Bottom Navigation */}
+      <BottomNavBar activeTab="status" />
     </View>
   );
 }
@@ -409,6 +458,20 @@ const styles = StyleSheet.create({
     color: '#475569',
     lineHeight: 18,
     marginTop: 4,
+  },
+  adminShortcut: {
+    marginTop: 12,
+    backgroundColor: '#F1F5F9',
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+  },
+  adminShortcutText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1D4ED8',
   },
   disbursementCard: {
     borderLeftWidth: 3,

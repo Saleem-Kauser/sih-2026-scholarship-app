@@ -10,6 +10,7 @@ export interface ScholarshipScheme {
   portal: string;
   basicEligibility: string[];
   requiredDocuments: string[];
+  documentGuidance?: string;
   trackingSupportedInPrototype: boolean;
 }
 
@@ -38,8 +39,8 @@ export const scholarshipSchemes: ScholarshipScheme[] = [
     ],
     requiredDocuments: [
       'ST Community / Caste Certificate',
-      'Required documents to be verified from official scheme guidelines.',
     ],
+    documentGuidance: 'Additional documents should be confirmed from the latest official scheme guidelines.',
     trackingSupportedInPrototype: true, // Demo prototype feature: supported in JAGO unified tracking view
   },
   {
@@ -59,8 +60,8 @@ export const scholarshipSchemes: ScholarshipScheme[] = [
     ],
     requiredDocuments: [
       'ST Community / Caste Certificate',
-      'Required documents to be verified from official scheme guidelines.',
     ],
+    documentGuidance: 'Additional documents should be confirmed from the latest official scheme guidelines.',
     trackingSupportedInPrototype: true, // Demo prototype feature: supported in JAGO unified tracking view
   },
   {
@@ -80,8 +81,8 @@ export const scholarshipSchemes: ScholarshipScheme[] = [
     ],
     requiredDocuments: [
       'ST Community / Caste Certificate',
-      'Required documents to be verified from official scheme guidelines.',
     ],
+    documentGuidance: 'Additional documents should be confirmed from the latest official scheme guidelines.',
     trackingSupportedInPrototype: true, // Demo prototype feature: supported in JAGO unified tracking view
   },
   {
@@ -101,8 +102,8 @@ export const scholarshipSchemes: ScholarshipScheme[] = [
     ],
     requiredDocuments: [
       'ST Community / Caste Certificate',
-      'Required documents to be verified from official scheme guidelines.',
     ],
+    documentGuidance: 'Additional documents should be confirmed from the latest official scheme guidelines.',
     trackingSupportedInPrototype: true, // Demo prototype feature: supported in JAGO unified tracking view
   },
   {
@@ -122,8 +123,8 @@ export const scholarshipSchemes: ScholarshipScheme[] = [
     ],
     requiredDocuments: [
       'ST Community / Caste Certificate',
-      'Required documents to be verified from official scheme guidelines.',
     ],
+    documentGuidance: 'Additional documents should be confirmed from the latest official scheme guidelines.',
     trackingSupportedInPrototype: true, // Demo prototype feature: supported in JAGO unified tracking view
   },
 ];

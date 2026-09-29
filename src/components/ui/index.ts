@@ -3,11 +3,12 @@
  * 
  * Import all UI components from this single file:
  * 
- * import { Button, Card, Input, Badge } from '@/components/ui';
+ * import { Button, Card, Input, Badge, BottomNavBar } from '@/components/ui';
  */
 
 // Core Components
 export { Badge, type BadgeProps, type BadgeSize, type BadgeVariant } from './Badge';
+export { BottomNavBar, type BottomNavBarProps, type TabKey } from './BottomNavBar';
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from './Button';
 export { Card, type CardProps, type CardVariant } from './Card';
 export { Input, type InputProps } from './Input';

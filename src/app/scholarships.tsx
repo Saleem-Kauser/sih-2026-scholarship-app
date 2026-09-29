@@ -1,13 +1,14 @@
 import { useRouter } from 'expo-router';
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BottomNavBar } from '@/components/ui';
 import type { ScholarshipScheme } from '@/data/scholarships';
 import { scholarshipSchemes } from '@/data/scholarships';
 
@@ -69,6 +70,9 @@ export default function ScholarshipsScreen() {
           ))
         )}
       </ScrollView>
+
+      {/* Bottom Navigation */}
+      <BottomNavBar activeTab="scholarships" />
     </View>
   );
 }

@@ -1,69 +1,128 @@
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Badge, BottomNavBar } from '@/components/ui';
+import { getApplications, getStudentDocuments } from '@/utils/applicationStore';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  const applications = getApplications();
+  const latestApp = applications[0];
+  const documents = getStudentDocuments();
+
+  const verifiedDocsCount = documents.filter((d) => d.status === 'verified').length;
+  const reviewDocsCount = documents.filter((d) => d.status === 'manual_review').length;
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>JAGO</Text>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: Math.max(insets.top + 16, 44),
+            paddingBottom: 24,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.logo}>JAGO</Text>
+          <Text style={styles.greeting}>Welcome, Student 👋</Text>
+          <Text style={styles.subtitle}>Unified scholarship assistant for tribal education</Text>
+        </View>
 
-        <Text style={styles.greeting}>
-          Welcome, Student 👋
-        </Text>
+        {/* Current Application Status Card */}
+        {latestApp && (
+          <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Application Status</Text>
+              <Badge label="Under Verification" variant="info" size="sm" />
+            </View>
 
-        <Text style={styles.subtitle}>
-          Your unified scholarship assistant
-        </Text>
-      </View>
+            <Text style={styles.schemeName}>{latestApp.schemeShortName}</Text>
+            <Text style={styles.appIdText}>Application ID: {latestApp.id}</Text>
 
-      {/* Scholarship Status */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>
-          Scholarship Status
-        </Text>
+            <View style={styles.divider} />
 
-        <Text style={styles.cardText}>
-          You currently have 1 scholarship application in progress.
-        </Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Pending Action:</Text>
+              <Text style={styles.infoValue}>
+                {latestApp.pendingAction || 'No action required from student'}
+              </Text>
+            </View>
 
-        <Pressable
-          style={styles.primaryButton}
-          onPress={() => router.push('/scholarship')}
-        >
-          <Text style={styles.primaryButtonText}>
-            View Application
+            <Pressable
+              style={styles.primaryButton}
+              onPress={() => router.push('/scholarship')}
+            >
+              <Text style={styles.primaryButtonText}>View Application Status</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => router.push('/scholarships')}
+            >
+              <Text style={styles.secondaryButtonText}>Browse All Scholarships</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Document Wallet Summary Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>Document Verification Summary</Text>
+            <Pressable onPress={() => router.push('/documents')}>
+              <Text style={styles.linkText}>View Wallet →</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.cardText}>
+            Auto-verified via DigiLocker & e-District Sandbox architecture.
           </Text>
-        </Pressable>
 
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={() => router.push('/scholarships')}
-        >
-          <Text style={styles.secondaryButtonText}>
-            Browse Scholarships
+          <View style={styles.docStatsContainer}>
+            <View style={styles.docStatBadgeSuccess}>
+              <Text style={styles.docStatBadgeSuccessText}>{verifiedDocsCount} Auto-Verified</Text>
+            </View>
+
+            {reviewDocsCount > 0 && (
+              <View style={styles.docStatBadgeWarning}>
+                <Text style={styles.docStatBadgeWarningText}>{reviewDocsCount} Manual Review</Text>
+              </View>
+            )}
+          </View>
+
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => router.push('/documents')}
+          >
+            <Text style={styles.secondaryButtonText}>Open Document Wallet</Text>
+          </Pressable>
+        </View>
+
+        {/* Need Help / Ask JAGO Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Ask JAGO Assistant</Text>
+          <Text style={styles.cardText}>
+            Get instant answers regarding scheme eligibility, document requirements, or your application progress.
           </Text>
-        </Pressable>
-      </View>
 
-      {/* Need Help */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>
-          Need Help?
-        </Text>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => router.push('/assistant')}
+          >
+            <Text style={styles.primaryButtonText}>Ask JAGO Assistant</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
 
-        <Text style={styles.cardText}>
-          Ask JAGO about eligibility, documents, or your application status.
-        </Text>
-
-        <Pressable style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>
-            Ask JAGO
-          </Text>
-        </Pressable>
-      </View>
+      {/* Bottom Navigation */}
+      <BottomNavBar activeTab="home" />
     </View>
   );
 }
@@ -72,90 +131,155 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F7F9FC',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 64,
   },
-
   header: {
-    marginBottom: 28,
+    marginBottom: 20,
   },
-
   logo: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '800',
     color: '#1677FF',
-    marginBottom: 24,
+    marginBottom: 12,
     letterSpacing: 0.5,
   },
-
   greeting: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: '#172033',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#667085',
-    lineHeight: 22,
+    lineHeight: 20,
   },
-
   card: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E4E7EC',
     borderRadius: 14,
-    padding: 20,
+    padding: 18,
     marginBottom: 16,
   },
-
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#172033',
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
-
-  cardText: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#667085',
-    marginBottom: 18,
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#172033',
   },
-
+  schemeName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1677FF',
+    marginTop: 2,
+  },
+  appIdText: {
+    fontSize: 12,
+    fontFamily: 'monospace',
+    color: '#667085',
+    marginTop: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  infoRow: {
+    marginBottom: 14,
+  },
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+  },
+  infoValue: {
+    fontSize: 13,
+    color: '#172033',
+    marginTop: 2,
+  },
+  linkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1677FF',
+  },
+  cardText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#667085',
+    marginBottom: 12,
+  },
+  docStatsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  docStatBadgeSuccess: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  docStatBadgeSuccessText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#15803D',
+  },
+  docStatBadgeWarning: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  docStatBadgeWarningText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B45309',
+  },
   primaryButton: {
-    minHeight: 48,
+    minHeight: 44,
     paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingVertical: 11,
     borderRadius: 10,
     backgroundColor: '#1677FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
-
   secondaryButton: {
-    minHeight: 48,
+    minHeight: 44,
     paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingVertical: 11,
     borderRadius: 10,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#D0D5DD',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
-
   secondaryButtonText: {
     color: '#344054',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

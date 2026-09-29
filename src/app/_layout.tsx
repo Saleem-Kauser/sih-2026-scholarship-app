@@ -32,6 +32,38 @@ export default function TabLayout() {
           name="scholarship" 
           options={{ headerShown: false }} 
         />
+        <Stack.Screen 
+          name="scholarships" 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="scholarship-details" 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="apply" 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="apply-documents" 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="documents" 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="document-detail" 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="assistant" 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="admin" 
+          options={{ headerShown: false }} 
+        />
       </Stack>
     </ThemeProvider>
   );
