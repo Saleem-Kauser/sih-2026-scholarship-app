@@ -5,6 +5,29 @@
 
 export type VerificationStatus = 'verified' | 'failed' | 'manual_review' | 'pending';
 
+export type VerificationStageName =
+  | 'document_fetch'
+  | 'document_found'
+  | 'certificate_data'
+  | 'data_extraction'
+  | 'data_comparison'
+  | 'outcome';
+
+export type VerificationStageStatus = 'pending' | 'in_progress' | 'success' | 'failed';
+
+export interface VerificationStage {
+  stage: VerificationStageName;
+  status: VerificationStageStatus;
+  detail?: string;
+}
+
+export interface VerificationStageUpdate {
+  documentType: string;
+  stage: VerificationStageName;
+  status: VerificationStageStatus;
+  detail?: string;
+}
+
 export type DocumentSource = 'DigiLocker' | 'DigiLocker Sandbox' | 'e-District Sandbox' | 'Manual Upload';
 
 export interface VerificationResult {
@@ -17,6 +40,7 @@ export interface VerificationResult {
   reference: string;
   verifiedAt: string;
   needsManualReview: boolean;
+  stages?: VerificationStage[];
   extractedData?: Record<string, string>;
   failureReason?: string;
 }
@@ -31,6 +55,7 @@ export interface StudentDocument {
   verifiedAt: string;
   expiryDate?: string;
   extractedData?: Record<string, string>;
+  stages?: VerificationStage[];
   lastVerificationResult?: string;
   manualReviewReason?: string;
   issuingAuthority: string;

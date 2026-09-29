@@ -8,8 +8,22 @@ import { SpacingTokens as Spacing, Typography } from '@/constants/theme';
 import { scholarshipSchemes } from '@/data/scholarships';
 import { useTheme } from '@/hooks/use-theme';
 import { verificationService } from '@/services/verification/verificationService';
-import type { StudentDocument } from '@/types/verification';
+import type { StudentDocument, VerificationStage, VerificationStageUpdate } from '@/types/verification';
 import { addApplication, createApplicationId, getSchemeId, getStudentInfo, upsertStudentDocuments } from '@/utils/applicationStore';
+
+const VERIFICATION_STAGE_LABELS: Record<VerificationStage['stage'], string> = {
+  document_fetch: 'Fetching issued documents',
+  document_found: 'Locating required certificate',
+  certificate_data: 'Retrieving certificate data',
+  data_extraction: 'Extracting certificate fields',
+  data_comparison: 'Comparing with application',
+  outcome: 'Verification result',
+};
+
+const INITIAL_VERIFICATION_STAGES: VerificationStage[] = Object.keys(VERIFICATION_STAGE_LABELS).map((stage) => ({
+  stage: stage as VerificationStage['stage'],
+  status: 'pending',
+}));
 
 export default function ApplyDocumentsScreen() {
   const router = useRouter();
@@ -25,6 +39,8 @@ export default function ApplyDocumentsScreen() {
   const [verifying, setVerifying] = useState(false);
   const [verifiedDocs, setVerifiedDocs] = useState<StudentDocument[]>([]);
   const [hasVerified, setHasVerified] = useState(false);
+  const [activeDocumentType, setActiveDocumentType] = useState<string>();
+  const [verificationStages, setVerificationStages] = useState<VerificationStage[]>(INITIAL_VERIFICATION_STAGES);
 
   const requiredDocTypes = scheme?.requiredDocuments || [
     'ST Community / Caste Certificate',
@@ -35,8 +51,25 @@ export default function ApplyDocumentsScreen() {
 
   const handleStartVerification = async () => {
     setVerifying(true);
+    setHasVerified(false);
+    setActiveDocumentType(requiredDocTypes[0]);
+    setVerificationStages(INITIAL_VERIFICATION_STAGES);
+
+    const handleStageUpdate = (update: VerificationStageUpdate) => {
+      if (update.stage === 'document_fetch' && update.status === 'in_progress') {
+        setActiveDocumentType(update.documentType);
+        setVerificationStages(INITIAL_VERIFICATION_STAGES);
+      }
+
+      setVerificationStages((currentStages) => currentStages.map((stage) =>
+        stage.stage === update.stage
+          ? { ...stage, status: update.status, detail: update.detail }
+          : stage
+      ));
+    };
+
     try {
-      const results = await verificationService.verifyAllDocuments(requiredDocTypes, studentInfo);
+      const results = await verificationService.verifyAllDocuments(requiredDocTypes, studentInfo, handleStageUpdate);
       upsertStudentDocuments(results);
       setVerifiedDocs(results);
       setHasVerified(true);
@@ -99,7 +132,7 @@ export default function ApplyDocumentsScreen() {
 
         <SectionHeader
           title="Automated Verification Architecture"
-          subtitle="JAGO checks DigiLocker repository first, then e-District sandbox fallback"
+          subtitle="JAGO checks DigiLocker first, then the e-District mock/sandbox fallback"
           marginBottom={Spacing.md}
         />
 
@@ -129,7 +162,7 @@ export default function ApplyDocumentsScreen() {
                   <Badge label="Pending Verification" variant="warning" size="sm" />
                 </View>
                 <Text style={[Typography.xs, { color: theme.textSecondary, marginTop: 4 }]}>
-                  Will be checked against DigiLocker & e-District Sandbox
+                  Will be checked against DigiLocker Sandbox & e-District mock
                 </Text>
               </Card>
             ))}
@@ -138,6 +171,43 @@ export default function ApplyDocumentsScreen() {
               <Text style={[Typography.xs, styles.guidanceText]}>
                 {documentGuidance}
               </Text>
+            )}
+
+            {verifying && (
+              <Card variant="outlined" style={styles.progressCard}>
+                <Text style={[Typography.bodyBold, { color: theme.text }]}>
+                  Verification in progress
+                </Text>
+                <Text style={[Typography.xs, { color: theme.textSecondary, marginTop: 4 }]}>
+                  Current document: {activeDocumentType || 'Required document'}
+                </Text>
+                <View style={styles.stageList}>
+                  {verificationStages.map((stage) => (
+                    <View key={stage.stage} style={styles.stageRow}>
+                      <Text style={[
+                        styles.stageMarker,
+                        stage.status === 'success' && styles.stageSuccess,
+                        stage.status === 'failed' && styles.stageFailed,
+                        stage.status === 'in_progress' && styles.stageInProgress,
+                      ]}>
+                        {stage.status === 'success' ? '✓' : stage.status === 'failed' ? '!' : stage.status === 'in_progress' ? '…' : '○'}
+                      </Text>
+                      <Text style={[Typography.small, { color: theme.text, flex: 1 }]}>
+                        {VERIFICATION_STAGE_LABELS[stage.stage]}
+                      </Text>
+                      <Text style={[Typography.xs, { color: theme.textSecondary }]}>
+                        {stage.status === 'in_progress'
+                          ? 'Fetching / verifying'
+                          : stage.status === 'success'
+                          ? 'Complete'
+                          : stage.status === 'failed'
+                          ? 'Manual review'
+                          : 'Pending'}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </Card>
             )}
 
             <Button
@@ -174,6 +244,15 @@ export default function ApplyDocumentsScreen() {
                 <Text style={[Typography.xs, { color: doc.status === 'verified' ? '#15803D' : '#B45309', marginTop: 4 }]}>
                   {doc.lastVerificationResult}
                 </Text>
+                {doc.stages && (
+                  <View style={styles.resultStages}>
+                    {doc.stages.map((stage) => (
+                      <Text key={stage.stage} style={styles.resultStageText}>
+                        {VERIFICATION_STAGE_LABELS[stage.stage]}: {stage.status === 'success' ? 'complete' : stage.status === 'failed' ? 'manual review' : 'pending'}
+                      </Text>
+                    ))}
+                  </View>
+                )}
               </Card>
             ))}
 
@@ -251,6 +330,46 @@ const styles = StyleSheet.create({
     color: '#64748B',
     lineHeight: 16,
     marginBottom: Spacing.sm,
+  },
+  progressCard: {
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: '#F8FAFC',
+  },
+  stageList: {
+    marginTop: Spacing.sm,
+    gap: 6,
+  },
+  stageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stageMarker: {
+    width: 18,
+    textAlign: 'center',
+    color: '#94A3B8',
+    fontWeight: '700',
+  },
+  stageSuccess: {
+    color: '#15803D',
+  },
+  stageFailed: {
+    color: '#B45309',
+  },
+  stageInProgress: {
+    color: '#1D4ED8',
+  },
+  resultStages: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  resultStageText: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#64748B',
   },
   loadingRow: {
     flexDirection: 'row',

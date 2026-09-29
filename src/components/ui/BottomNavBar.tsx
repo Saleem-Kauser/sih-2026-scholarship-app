@@ -42,11 +42,7 @@ export function BottomNavBar({ activeTab }: BottomNavBarProps) {
   };
 
   const handlePress = (item: NavItem) => {
-    if (item.route === '/') {
-      router.replace('/');
-    } else {
-      router.push(item.route as any);
-    }
+    router.replace(item.route as any);
   };
 
   return (

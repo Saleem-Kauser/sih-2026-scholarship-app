@@ -5,8 +5,16 @@ type ApplicationStoreListener = () => void;
 const listeners = new Set<ApplicationStoreListener>();
 let storeVersion = 0;
 
+export interface ApplicationStoreSnapshot {
+  version: number;
+  state: ApplicationState;
+}
+
+let storeSnapshot: ApplicationStoreSnapshot;
+
 function notifyStoreChanged() {
   storeVersion += 1;
+  storeSnapshot = { version: storeVersion, state };
   listeners.forEach((listener) => listener());
 }
 
@@ -17,6 +25,10 @@ export function subscribeApplicationStore(listener: ApplicationStoreListener): (
 
 export function getApplicationStoreVersion(): number {
   return storeVersion;
+}
+
+export function getApplicationStoreSnapshot(): ApplicationStoreSnapshot {
+  return storeSnapshot;
 }
 
 /**
@@ -77,6 +89,8 @@ let state: ApplicationState = {
   applications: [...initialApplications],
   documents: [...initialStudentDocuments],
 };
+
+storeSnapshot = { version: storeVersion, state };
 
 let applicationSequence = 1;
 

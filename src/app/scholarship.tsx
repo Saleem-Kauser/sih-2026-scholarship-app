@@ -11,14 +11,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNavBar } from '@/components/ui';
-import { getApplicationStoreVersion, getApplications, subscribeApplicationStore } from '@/utils/applicationStore';
+import type { ScholarshipApplicationItem } from '@/types/verification';
+import { getApplicationStoreSnapshot, subscribeApplicationStore } from '@/utils/applicationStore';
 
 interface ProgressStage {
   name: string;
   status: 'completed' | 'current' | 'pending';
 }
 
-function getStatusPresentation(status: ReturnType<typeof getApplications>[number]['status']) {
+function getStatusPresentation(status: ScholarshipApplicationItem['status']) {
   switch (status) {
     case 'action_required':
       return { label: 'Manual Review Required', currentStage: 1 };
@@ -39,8 +40,12 @@ export default function ScholarshipScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  useSyncExternalStore(subscribeApplicationStore, getApplicationStoreVersion, getApplicationStoreVersion);
-  const applications = getApplications();
+  const storeSnapshot = useSyncExternalStore(
+    subscribeApplicationStore,
+    getApplicationStoreSnapshot,
+    getApplicationStoreSnapshot
+  );
+  const applications = storeSnapshot.state.applications || [];
   const currentApp = applications[0] || {
     id: 'JAGO-2026-00124',
     schemeShortName: 'Post-Matric Scholarship',

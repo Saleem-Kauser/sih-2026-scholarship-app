@@ -294,6 +294,6 @@ app.post('/api/verify/digilocker', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`JAGO Verification Backend listening on port ${PORT}`);
 });

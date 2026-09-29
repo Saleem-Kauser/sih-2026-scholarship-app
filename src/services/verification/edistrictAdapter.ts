@@ -28,7 +28,7 @@ export class EDistrictAdapter {
           source: 'e-District Sandbox',
           documentType: 'Income Certificate',
           documentName: 'Annual Income Certificate',
-          message: 'Income certificate verified through e-District state repository sandbox.',
+          message: 'Income certificate verified through the e-District mock/sandbox result.',
           reference: certRef,
           verifiedAt: currentDate,
           needsManualReview: false,
@@ -36,7 +36,7 @@ export class EDistrictAdapter {
             'Annual Family Income': '₹ 1,80,000 / annum',
             'Income Ceiling Compliant': 'Yes (Within prescribed ST ceiling)',
             'Issuing Officer': 'Tehsildar / Sub-Divisional Magistrate',
-            'Verification Node': 'e-District State Database Sandbox',
+            'Verification Node': 'e-District Mock/Sandbox',
           },
         };
       }
@@ -75,7 +75,7 @@ export class EDistrictAdapter {
       documentName: documentType,
       message:
         simulatedOutcome === 'SUCCESS'
-          ? 'Verified via e-District Sandbox'
+          ? 'Verified via e-District mock/sandbox'
           : 'Automated match uncertain. Routed to verifier dashboard.',
       reference: certRef,
       verifiedAt: currentDate,
