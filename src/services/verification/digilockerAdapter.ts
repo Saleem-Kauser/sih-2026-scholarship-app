@@ -15,8 +15,8 @@ import type { StudentInfo } from '@/utils/applicationStore';
  */
 export class DigiLockerAdapter {
   private getBackendUrl(): string {
-    // Allows environment override or defaults to localhost backend server
-    return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+    // Allows local/deployment environment overrides; hosted backend is the production default.
+    return process.env.EXPO_PUBLIC_BACKEND_URL || 'https://jago-backend-3jm7.onrender.com';
   }
 
   /**
