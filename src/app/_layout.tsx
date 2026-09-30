@@ -15,11 +15,16 @@ export default function TabLayout() {
       <AnimatedSplashOverlay />
       
       <Stack
+        initialRouteName="role-select"
         screenOptions={{
           // Prevents dark flashes during screen transitions
           contentStyle: { backgroundColor: '#F8FAFC' },
         }}
       >
+        <Stack.Screen
+          name="role-select"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen 
           name="index" 
           options={{ headerShown: false }} 

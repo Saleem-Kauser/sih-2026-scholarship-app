@@ -1,13 +1,23 @@
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Badge, BottomNavBar } from '@/components/ui';
 import { getApplications, getStudentDocuments } from '@/utils/applicationStore';
+import { hasSelectedRole } from '@/utils/roleStore';
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  const roleSelectionComplete = hasSelectedRole();
+
+  useEffect(() => {
+    if (!roleSelectionComplete) router.replace('/role-select');
+  }, [roleSelectionComplete, router]);
+
+  if (!roleSelectionComplete) return null;
 
   const applications = getApplications();
   const latestApp = applications[0];
@@ -34,6 +44,9 @@ export default function HomeScreen() {
           <Text style={styles.logo}>JAGO</Text>
           <Text style={styles.greeting}>Welcome, Student 👋</Text>
           <Text style={styles.subtitle}>Unified scholarship assistant for tribal education</Text>
+          <Pressable onPress={() => router.replace('/role-select')} style={styles.roleSwitchButton}>
+            <Text style={styles.linkText}>Switch prototype role</Text>
+          </Pressable>
         </View>
 
         {/* Current Application Status Card */}
@@ -158,6 +171,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#667085',
     lineHeight: 20,
+  },
+  roleSwitchButton: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingVertical: 4,
   },
   card: {
     backgroundColor: '#FFFFFF',
