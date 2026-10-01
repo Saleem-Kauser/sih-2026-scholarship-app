@@ -31,7 +31,9 @@ function languageName(language) {
 
 function parseJson(text) {
   if (typeof text !== 'string') throw new Error('Structured model response was empty.');
-  return JSON.parse(text);
+  const trimmedText = text.trim();
+  const fencedJson = trimmedText.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return JSON.parse(fencedJson ? fencedJson[1].trim() : trimmedText);
 }
 
 function sanitizeGeminiError(error, prompt) {
@@ -102,10 +104,13 @@ async function classifyQuestion(message, role, language, clientFactory = createC
     return { ...parsed, allowedTools: tools };
   } catch (error) {
     error.jagoStage = 'parseClassification';
+    const diagnostic = sanitizeGeminiError(error, prompt);
+    diagnostic.message = 'Classifier response parsing or validation failed.';
     console.error('[JAGO_GEMINI] response processing failed', {
       stage: 'parseClassification',
-      ...sanitizeGeminiError(error, prompt),
+      ...diagnostic,
     });
+    error.message = diagnostic.message;
     throw error;
   }
 }

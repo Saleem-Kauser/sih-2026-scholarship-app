@@ -70,6 +70,20 @@ test('Gemini intent classification uses a plain request with role-specific allow
   assert.equal('config' in request, false);
 });
 
+test('Gemini intent classification accepts JSON wrapped in Markdown code fences', async () => {
+  const result = await classifyQuestion('What is my application status?', 'student', 'en', () => ({
+    models: {
+      generateContent: async () => ({
+        text: '```json\n{"intent":"APPLICATION_STATUS","tool":"getApplicationStatus","requiresTool":true}\n```',
+      }),
+    },
+  }));
+
+  assert.equal(result.intent, 'APPLICATION_STATUS');
+  assert.equal(result.tool, 'getApplicationStatus');
+  assert.equal(result.requiresTool, true);
+});
+
 test('Gemini response receives only the structured tool result and requested language', async () => {
   let request;
   const toolResult = { available: true, status: 'under_verification' };
