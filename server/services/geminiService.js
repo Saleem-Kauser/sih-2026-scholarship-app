@@ -1,4 +1,5 @@
 const { GoogleGenAI } = require('@google/genai');
+const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 
 const STUDENT_TOOLS = [
   'getApplicationStatus',
@@ -33,13 +34,17 @@ function parseJson(text) {
   return JSON.parse(text);
 }
 
-function sanitizeGeminiError(error) {
+function sanitizeGeminiError(error, prompt) {
   const apiKey = process.env.GEMINI_API_KEY;
   let message = typeof error?.message === 'string' ? error.message : 'Unknown Gemini error';
   if (apiKey) message = message.split(apiKey).join('[REDACTED]');
+  if (prompt) message = message.split(prompt).join('[REDACTED_PROMPT]');
   message = message
     .replace(/Bearer\s+[^\s"']+/gi, 'Bearer [REDACTED]')
     .replace(/([?&](?:key|api_key|token)=)[^&\s]+/gi, '$1[REDACTED]')
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[REDACTED_EMAIL]')
+    .replace(/\b(?:STU|STUDENT)[-_ ]?\d{3,}\b/gi, '[REDACTED_ID]')
+    .replace(/\b\+?\d[\d\s().-]{8,}\d\b/g, '[REDACTED_NUMBER]')
     .slice(0, 300);
   return {
     name: typeof error?.name === 'string' ? error.name.slice(0, 80) : 'Error',
@@ -51,26 +56,19 @@ function sanitizeGeminiError(error) {
 }
 
 async function requestGemini(stage, payload, clientFactory) {
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  console.info('[JAGO_GEMINI] request started', {
-    stage,
-    apiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
-    model,
-  });
+  const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+  const prompt = payload.contents;
+  console.info('[JAGO_GEMINI] request started', { stage, model });
   try {
     const ai = clientFactory();
-    const response = await ai.models.generateContent({ model, ...payload });
-    console.info('[JAGO_GEMINI] request succeeded', {
-      stage,
-      model,
-      responseTextLength: typeof response?.text === 'string' ? response.text.length : 0,
-    });
+    const response = await ai.models.generateContent({ model, contents: prompt });
+    console.info('[JAGO_GEMINI] request succeeded', { stage, model });
     return response;
   } catch (error) {
     console.error('[JAGO_GEMINI] request failed', {
       stage,
       model,
-      ...sanitizeGeminiError(error),
+      ...sanitizeGeminiError(error, prompt),
     });
     throw error;
   }
@@ -81,27 +79,13 @@ async function classifyQuestion(message, role, language, clientFactory = createC
   const allowed = [...tools, 'none'];
   const response = await requestGemini('classifyQuestion', {
     contents: [
-      'Classify the user question for JAGO. Return only schema-conforming JSON. ',
+      'Classify the user question for JAGO. Return only a JSON object with string fields intent and tool, and boolean field requiresTool. ',
       `Role=${role}; language=${languageName(language)}. `,
-      `Allowed tools for this role: ${tools.join(', ')}. Choose none if no listed tool is needed. `,
+      `Allowed tools for this role: ${tools.join(', ')}. The tool must be one of these or none. Choose none if no listed tool is needed. `,
+      'Set requiresTool to true exactly when tool is not none. ',
       'Never infer government or scholarship facts. The tool lookup is the source of truth. ',
       `Question: ${message}`,
     ].join(''),
-    config: {
-      responseMimeType: 'application/json',
-      responseJsonSchema: {
-        type: 'object',
-        properties: {
-          intent: { type: 'string' },
-          tool: { type: 'string', enum: allowed },
-          requiresTool: { type: 'boolean' },
-        },
-        required: ['intent', 'tool', 'requiresTool'],
-        additionalProperties: false,
-      },
-      maxOutputTokens: 128,
-      temperature: 0,
-    },
   }, clientFactory);
 
   const parsed = parseJson(response.text);
@@ -125,7 +109,6 @@ async function generateGroundedResponse(message, language, toolResult, clientFac
       `User question: ${message}\n`,
       `Approved backend tool result (source of truth): ${JSON.stringify(toolResult)}`,
     ].join(''),
-    config: { maxOutputTokens: 320, temperature: 0.2 },
   }, clientFactory);
   const text = response.text;
   if (typeof text !== 'string' || !text.trim()) throw new Error('Model returned no response.');

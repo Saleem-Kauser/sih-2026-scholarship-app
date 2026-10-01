@@ -2,9 +2,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const express = require('express');
 const jagoChatRouter = require('../routes/jagoChat');
+const geminiService = require('../services/geminiService');
 
 function startChatServer() {
   const app = express();
+  app.set('trust proxy', 1);
   app.use(express.json());
   app.use('/api/jago', jagoChatRouter);
   const server = app.listen(0, '127.0.0.1');
@@ -14,10 +16,103 @@ function startChatServer() {
 async function postChat(baseUrl, body) {
   return fetch(`${baseUrl}/api/jago/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Forwarded-For': `198.51.100.${Number(new URL(baseUrl).port) % 254 + 1}`,
+    },
     body: JSON.stringify(body),
   });
 }
+
+test('chat JSON contract supports en, ta, hi and an allowed admin tool with mocked Gemini', async (t) => {
+  const originalKey = process.env.GEMINI_API_KEY;
+  const originalClassifier = geminiService.classifyQuestion;
+  const originalAnswer = geminiService.answerQuestion;
+  process.env.GEMINI_API_KEY = 'test-key-only';
+  geminiService.classifyQuestion = async (message, role) => {
+    const adminToolRequested = /coverage/i.test(message);
+    return {
+      intent: role === 'admin' || adminToolRequested ? 'COVERAGE_SUMMARY' : 'SCHOLARSHIP_INFO',
+      tool: role === 'admin' || adminToolRequested ? 'getCoverageSummary' : 'getScholarshipInfo',
+      requiresTool: true,
+      allowedTools: role === 'admin'
+        ? ['getCoverageSummary', 'getUnreachedCandidates', 'getVerificationSummary', 'getApplicationSummary', 'getBenefitGapCandidate']
+        : ['getApplicationStatus', 'getScholarshipInfo', 'getDocuments', 'getVerificationStats'],
+    };
+  };
+  geminiService.answerQuestion = async (message, role, language, toolResult, intent) => ({
+    intent: intent.intent,
+    tool: intent.tool,
+    answer: `Mocked ${language} response for ${role}.`,
+  });
+
+  const server = await startChatServer();
+  t.after(async () => {
+    if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    geminiService.classifyQuestion = originalClassifier;
+    geminiService.answerQuestion = originalAnswer;
+    if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = originalKey;
+  });
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+  const requests = [
+    ['Which scholarship can I apply for?', 'en'],
+    ['எந்த உதவித்தொகைக்கு நான் விண்ணப்பிக்கலாம்?', 'ta'],
+    ['मैं किस छात्रवृत्ति के लिए आवेदन कर सकता हूँ?', 'hi'],
+  ];
+  for (const [message, language] of requests) {
+    const response = await postChat(baseUrl, { message, role: 'student', language });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.language, language);
+    assert.equal(body.tool, 'getScholarshipInfo');
+    assert.equal(body.answer, `Mocked ${language} response for student.`);
+  }
+
+  assert.equal((await postChat(baseUrl, {
+    message: 'Which scholarship can I apply for?', role: 'student', language: 'English',
+  })).status, 400);
+
+  const deniedStudent = await postChat(baseUrl, {
+    message: 'Show coverage summary', role: 'student', language: 'en',
+  });
+  assert.equal(deniedStudent.status, 403);
+  assert.equal((await deniedStudent.json()).code, 'TOOL_FORBIDDEN');
+
+  const adminResponse = await postChat(baseUrl, {
+    message: 'Show scholarship coverage summary.', role: 'admin', language: 'en',
+  });
+  assert.equal(adminResponse.status, 200);
+  assert.equal((await adminResponse.json()).tool, 'getCoverageSummary');
+});
+
+test('Gemini service failures return only a safe user-facing error', async (t) => {
+  const originalKey = process.env.GEMINI_API_KEY;
+  const originalClassifier = geminiService.classifyQuestion;
+  process.env.GEMINI_API_KEY = 'test-key-only';
+  geminiService.classifyQuestion = async () => {
+    throw new Error('private provider diagnostic');
+  };
+  const server = await startChatServer();
+  t.after(async () => {
+    if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    geminiService.classifyQuestion = originalClassifier;
+    if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = originalKey;
+  });
+
+  const response = await postChat(`http://127.0.0.1:${server.address().port}`, {
+    message: 'What is my application status?', role: 'student', language: 'en',
+  });
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.code, 'AI_UNAVAILABLE');
+  assert.match(body.error, /temporarily unavailable/i);
+  assert.doesNotMatch(JSON.stringify(body), /private provider diagnostic|test-key-only/);
+});
 
 test('role allowlists restrict student tools and expose admin tools only to admin role', () => {
   assert.equal(jagoChatRouter.isToolAllowed('student', 'getApplicationStatus'), true);

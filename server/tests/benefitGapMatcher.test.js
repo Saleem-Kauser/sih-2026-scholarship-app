@@ -52,7 +52,7 @@ test('Gemini absence fails with a controlled configuration code', async () => {
   }
 });
 
-test('Gemini intent classification uses a structured role-specific tool schema without an API key', async () => {
+test('Gemini intent classification uses a plain request with role-specific allowed tools', async () => {
   let request;
   const result = await classifyQuestion('How many potential gaps?', 'admin', 'en', () => ({
     models: {
@@ -64,15 +64,10 @@ test('Gemini intent classification uses a structured role-specific tool schema w
   }));
 
   assert.equal(result.tool, 'getCoverageSummary');
-  assert.deepEqual(request.config.responseJsonSchema.properties.tool.enum, [
-    'getCoverageSummary',
-    'getUnreachedCandidates',
-    'getVerificationSummary',
-    'getApplicationSummary',
-    'getBenefitGapCandidate',
-    'none',
-  ]);
-  assert.equal(request.config.responseMimeType, 'application/json');
+  assert.equal(typeof request.contents, 'string');
+  assert.match(request.contents, /getCoverageSummary, getUnreachedCandidates/);
+  assert.match(request.contents, /Choose none/);
+  assert.equal('config' in request, false);
 });
 
 test('Gemini response receives only the structured tool result and requested language', async () => {
@@ -99,4 +94,83 @@ test('Gemini response receives only the structured tool result and requested lan
   assert.match(request.contents, /Respond in Tamil/);
   assert.match(request.contents, /"status":"under_verification"/);
   assert.doesNotMatch(request.contents, /GEMINI_API_KEY/);
+});
+
+test('Gemini 3.5 Flash-Lite uses the basic SDK request for mocked classify and response calls', async () => {
+  const originalModel = process.env.GEMINI_MODEL;
+  process.env.GEMINI_MODEL = 'gemini-3.5-flash-lite';
+  const requests = [];
+  const clientFactory = () => ({
+    models: {
+      generateContent: async (payload) => {
+        requests.push(payload);
+        return requests.length === 1
+          ? { text: JSON.stringify({ intent: 'SCHOLARSHIP_INFO', tool: 'getScholarshipInfo', requiresTool: true }) }
+          : { text: 'Review the listed scholarship options.' };
+      },
+    },
+  });
+
+  try {
+    const result = await answerQuestion(
+      'Which scholarship can I apply for?',
+      'student',
+      'en',
+      { available: true, schemes: [{ name: 'Prototype Scholarship' }], eligibilityAssessed: false },
+      undefined,
+      clientFactory
+    );
+
+    assert.equal(result.answer, 'Review the listed scholarship options.');
+    assert.equal(requests.length, 2);
+    for (const request of requests) {
+      assert.equal(request.model, 'gemini-3.5-flash-lite');
+      assert.equal(typeof request.contents, 'string');
+      assert.equal('config' in request, false);
+    }
+    assert.match(requests[1].contents, /Respond in English/);
+    assert.match(requests[1].contents, /Prototype Scholarship/);
+  } finally {
+    if (originalModel === undefined) delete process.env.GEMINI_MODEL;
+    else process.env.GEMINI_MODEL = originalModel;
+  }
+});
+
+test('Gemini failure diagnostics redact prompt data, identifiers, and credentials', async () => {
+  const originalKey = process.env.GEMINI_API_KEY;
+  const originalModel = process.env.GEMINI_MODEL;
+  process.env.GEMINI_API_KEY = 'test-gemini-secret';
+  process.env.GEMINI_MODEL = 'gemini-3.5-flash-lite';
+  const originalError = console.error;
+  const logEntries = [];
+  console.error = (...args) => logEntries.push(args);
+
+  try {
+    await assert.rejects(classifyQuestion(
+      'What is status for STU-123?',
+      'student',
+      'en',
+      () => ({
+        models: {
+          generateContent: async () => {
+            const error = new Error('Failed request for STU-123; key=test-gemini-secret; contact student@example.com');
+            error.status = 400;
+            throw error;
+          },
+        },
+      })
+    ));
+  } finally {
+    console.error = originalError;
+    if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = originalKey;
+    if (originalModel === undefined) delete process.env.GEMINI_MODEL;
+    else process.env.GEMINI_MODEL = originalModel;
+  }
+
+  const output = JSON.stringify(logEntries);
+  assert.match(output, /classifyQuestion/);
+  assert.match(output, /gemini-3\.5-flash-lite/);
+  assert.match(output, /400/);
+  assert.doesNotMatch(output, /test-gemini-secret|STU-123|student@example\.com|What is status/);
 });

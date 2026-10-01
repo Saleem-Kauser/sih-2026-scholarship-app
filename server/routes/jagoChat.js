@@ -1,6 +1,6 @@
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
-const { classifyQuestion, answerQuestion } = require('../services/geminiService');
+const geminiService = require('../services/geminiService');
 const { classifyBenefitGap } = require('../services/benefitGapMatcher');
 
 const router = express.Router();
@@ -70,7 +70,7 @@ function cleanText(value, maxLength = 240) {
 }
 
 function sanitizeStudentContext(context) {
-  if (!context || typeof context !== 'object') return {};
+  if (!context || typeof context !== 'object') return { application: null, scholarships: [] };
   const application = context.application && typeof context.application === 'object'
     ? {
         schemeId: cleanText(context.application.schemeId, 80),
@@ -377,7 +377,7 @@ router.post('/chat', ipLimiter, sessionLimiter, async (req, res) => {
     if (shouldUseDeterministicFallback) {
       intent = getDeterministicIntent(message.trim(), role);
     } else {
-      intent = await classifyQuestion(message.trim(), role, language);
+      intent = await geminiService.classifyQuestion(message.trim(), role, language);
     }
 
     if (intent.tool !== 'none' && !isToolAllowed(role, intent.tool)) {
@@ -398,7 +398,7 @@ router.post('/chat', ipLimiter, sessionLimiter, async (req, res) => {
 
     const responseText = shouldUseDeterministicFallback
       ? getDeterministicAnswer(message.trim(), role, language, toolResult, intent)
-      : (await answerQuestion(message.trim(), role, language, toolResult, intent)).answer;
+      : (await geminiService.answerQuestion(message.trim(), role, language, toolResult, intent)).answer;
 
     return res.json({
       answer: responseText,
