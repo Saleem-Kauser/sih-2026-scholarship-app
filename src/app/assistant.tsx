@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
     ActivityIndicator,
     Keyboard,
@@ -23,7 +23,7 @@ import { JagoChatError, sendJagoMessage } from '@/services/jago/jagoChatAdapter'
 import type { AdminChatContext, StudentChatContext } from '@/types/jagoChat';
 import { getApplications, getStudentDocuments } from '@/utils/applicationStore';
 import { getQuickPromptsForRole } from '@/utils/jagoQuickPrompts';
-import { getRole } from '@/utils/roleStore';
+import { getRole, subscribeRole } from '@/utils/roleStore';
 
 interface ChatMessage {
   id: string;
@@ -137,7 +137,7 @@ function createLocalFallback(message: string, role: 'student' | 'admin', languag
 export default function AssistantScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const role = getRole();
+  const role = useSyncExternalStore(subscribeRole, getRole, getRole);
 
   const [input, setInput] = useState('');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -216,7 +216,7 @@ export default function AssistantScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScreenHeader
         title="JAGO Assistant"
-        subtitle={strings.localRole}
+        subtitle={role === 'admin' ? strings.adminProfile : strings.studentProfile}
         rightContent={(
           <Pressable onPress={() => router.replace('/role-select')} style={styles.roleSwitchAction}>
             <Text style={styles.roleSwitchText}>{strings.switchRole}</Text>

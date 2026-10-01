@@ -51,6 +51,8 @@ const hi: typeof en = {
   noDocuments: 'वर्तमान आवेदन के लिए दस्तावेज़ सत्यापन रिकॉर्ड उपलब्ध नहीं हैं।',
   reviewNotRejection: 'मैन्युअल समीक्षा का अर्थ आवेदन अस्वीकृति नहीं है।',
   localRole: 'प्रोटोटाइप भूमिका',
+  studentProfile: 'विद्यार्थी सहायक',
+  adminProfile: 'मंत्रालय / प्रशासक सहायक',
   quickQuestions: 'त्वरित प्रश्न',
 };
 

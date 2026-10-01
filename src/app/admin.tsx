@@ -9,7 +9,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { benefitGapAdapter } from '@/services/benefitGap/benefitGapAdapter';
 import type { BenefitGapCandidate, BenefitGapSummary } from '@/types/benefitGap';
 import { approveDocumentManualReview, getApplications } from '@/utils/applicationStore';
-import { setRole } from '@/utils/roleStore';
+import { setRole, setRoleAndNavigate } from '@/utils/roleStore';
 
 export default function AdminScreen() {
   const router = useRouter();
@@ -198,7 +198,7 @@ export default function AdminScreen() {
         <Card variant="outlined" style={styles.assistantCard}>
           <Text style={styles.assistantTitle}>JAGO Admin Assistant</Text>
           <Text style={styles.assistantDescription}>Ask about aggregate application and synthetic coverage summaries.</Text>
-          <Button label="Ask JAGO" onPress={() => router.push('/assistant')} fullWidth />
+          <Button label="Ask JAGO" onPress={() => setRoleAndNavigate('admin', () => router.push('/assistant'))} fullWidth />
         </Card>
 
         <SectionHeader title="Verification Review" subtitle="Manual review actions remain part of the prototype workflow" />

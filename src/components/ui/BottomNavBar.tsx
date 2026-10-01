@@ -2,6 +2,8 @@ import { usePathname, useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { setRoleAndNavigate } from '@/utils/roleStore';
+
 export type TabKey = 'home' | 'scholarships' | 'documents' | 'status' | 'assistant';
 
 interface NavItem {
@@ -42,6 +44,10 @@ export function BottomNavBar({ activeTab }: BottomNavBarProps) {
   };
 
   const handlePress = (item: NavItem) => {
+    if (item.key === 'assistant' && activeTab !== 'assistant') {
+      setRoleAndNavigate('student', () => router.replace(item.route as any));
+      return;
+    }
     router.replace(item.route as any);
   };
 

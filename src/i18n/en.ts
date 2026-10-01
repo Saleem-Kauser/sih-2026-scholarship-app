@@ -49,6 +49,8 @@ const en = {
   noDocuments: 'No document verification records are available for the current application.',
   reviewNotRejection: 'Manual review is not an application rejection.',
   localRole: 'Prototype role',
+  studentProfile: 'Student Assistant',
+  adminProfile: 'Ministry / Admin Assistant',
   quickQuestions: 'Quick questions',
 };
 

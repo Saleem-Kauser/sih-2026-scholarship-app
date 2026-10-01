@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Badge, BottomNavBar } from '@/components/ui';
 import { getApplications, getStudentDocuments } from '@/utils/applicationStore';
-import { hasSelectedRole } from '@/utils/roleStore';
+import { hasSelectedRole, setRoleAndNavigate } from '@/utils/roleStore';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -127,7 +127,7 @@ export default function HomeScreen() {
 
           <Pressable
             style={styles.primaryButton}
-            onPress={() => router.push('/assistant')}
+            onPress={() => setRoleAndNavigate('student', () => router.push('/assistant'))}
           >
             <Text style={styles.primaryButtonText}>Ask JAGO Assistant</Text>
           </Pressable>

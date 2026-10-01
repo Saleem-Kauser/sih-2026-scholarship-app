@@ -3,6 +3,22 @@ const assert = require('node:assert/strict');
 const express = require('express');
 const jagoChatRouter = require('../routes/jagoChat');
 const geminiService = require('../services/geminiService');
+const { getRole, setRoleAndNavigate } = require('../../src/utils/roleStore.ts');
+
+test('assistant navigation sets the matching role before opening the shared route', () => {
+  const routes = [];
+
+  setRoleAndNavigate('admin', () => {
+    assert.equal(getRole(), 'admin');
+    routes.push('/assistant');
+  });
+  setRoleAndNavigate('student', () => {
+    assert.equal(getRole(), 'student');
+    routes.push('/assistant');
+  });
+
+  assert.deepEqual(routes, ['/assistant', '/assistant']);
+});
 
 function startChatServer() {
   const app = express();

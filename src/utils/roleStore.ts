@@ -19,6 +19,11 @@ export function setRole(nextRole: PrototypeRole) {
   notifyRoleChanged();
 }
 
+export function setRoleAndNavigate(nextRole: PrototypeRole, navigate: () => void) {
+  setRole(nextRole);
+  navigate();
+}
+
 export function getRole(): PrototypeRole {
   return role;
 }
