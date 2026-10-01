@@ -7,6 +7,13 @@ const router = express.Router();
 const LANGUAGES = new Set(['en', 'ta', 'hi']);
 const STUDENT_TOOLS = new Set(['getApplicationStatus', 'getScholarshipInfo', 'getDocuments', 'getVerificationStats']);
 const ADMIN_TOOLS = new Set(['getCoverageSummary', 'getUnreachedCandidates', 'getVerificationSummary', 'getApplicationSummary', 'getBenefitGapCandidate']);
+const SCHOLARSHIP_CATALOG = [
+  { id: 'pre-matric-st', name: 'Pre-Matric Scholarship Scheme for ST Students', shortName: 'Pre-Matric Scholarship' },
+  { id: 'post-matric-st', name: 'Post-Matric Scholarship Scheme for ST Students', shortName: 'Post-Matric Scholarship' },
+  { id: 'top-class-st', name: 'National Fellowship and Scholarship for Higher Education of ST Students - Top Class Education', shortName: 'Top Class Scholarship' },
+  { id: 'nfst', name: 'National Fellowship for Higher Education of ST Students (NFST)', shortName: 'National Fellowship (NFST)' },
+  { id: 'nos-st', name: 'National Overseas Scholarship for ST Students (NOS)', shortName: 'National Overseas Scholarship' },
+];
 
 function isToolAllowed(role, tool) {
   return role === 'student'
@@ -188,6 +195,8 @@ function formatDeterministicAnswer(message, role, language, toolResult, intent) 
     unreached: 'Potential unreached students',
     review: 'Records requiring review',
     processed: 'Applications being processed',
+    scholarships: 'JAGO currently supports these scholarship schemes',
+    eligibility: 'Eligibility has not yet been assessed. Share your education level, category, state, and course to help narrow the options.',
     unavailable: 'The requested prototype data is unavailable.',
   };
   const hi = {
@@ -195,6 +204,8 @@ function formatDeterministicAnswer(message, role, language, toolResult, intent) 
     unreached: 'संभावित अप्राप्य विद्यार्थी',
     review: 'समीक्षा की आवश्यकता वाले रिकॉर्ड',
     processed: 'प्रसंस्करण में आवेदन',
+    scholarships: 'JAGO इन छात्रवृत्ति योजनाओं का समर्थन करता है',
+    eligibility: 'पात्रता का अभी आकलन नहीं किया गया है। विकल्प सीमित करने के लिए अपनी शिक्षा का स्तर, श्रेणी, राज्य और पाठ्यक्रम बताएं।',
     unavailable: 'अनुरोधित प्रोटोटाइप डेटा उपलब्ध नहीं है।',
   };
   const ta = {
@@ -202,6 +213,8 @@ function formatDeterministicAnswer(message, role, language, toolResult, intent) 
     unreached: 'சாத்தியமான சென்றடையாத மாணவர்கள்',
     review: 'மதிப்பாய்வு தேவைப்படும் பதிவுகள்',
     processed: 'செயலாக்கத்தில் உள்ள விண்ணப்பங்கள்',
+    scholarships: 'JAGO ஆதரிக்கும் உதவித்தொகை திட்டங்கள்',
+    eligibility: 'தகுதி இன்னும் மதிப்பிடப்படவில்லை. பொருத்தமான திட்டங்களைத் தேர்வு செய்ய உங்கள் கல்வி நிலை, பிரிவு, மாநிலம் மற்றும் பாடநெறியைப் பகிரவும்.',
     unavailable: 'கோரப்பட்ட முன்மாதிரி தரவு கிடைக்கவில்லை.',
   };
   const labels = language === 'hi' ? hi : language === 'ta' ? ta : en;
@@ -252,11 +265,17 @@ function formatDeterministicAnswer(message, role, language, toolResult, intent) 
     return labels.unavailable;
   }
   if (intent.tool === 'getScholarshipInfo') {
-    if (Array.isArray(toolResult?.schemes) && toolResult.schemes.length > 0) {
-      const first = toolResult.schemes[0];
-      return `${first.name}: ${first.description || 'Scholarship details available in the prototype catalog.'}`;
-    }
-    return labels.unavailable;
+    const schemes = Array.isArray(toolResult?.schemes)
+      ? toolResult.schemes
+      : toolResult?.scheme ? [toolResult.scheme] : [];
+    if (schemes.length === 0) return labels.unavailable;
+    const schemeList = schemes.map((scheme, index) => {
+      const acronym = scheme.name.match(/\(([A-Z]{2,})\)$/)?.[1];
+      const shortName = scheme.shortName || scheme.name;
+      const displayName = acronym && !shortName.includes(acronym) ? `${shortName} (${acronym})` : shortName;
+      return `${index + 1}. ${displayName}`;
+    }).join('\n');
+    return `${labels.scholarships}:\n${schemeList}\n${labels.eligibility}`;
   }
   if (intent.tool === 'getVerificationStats') {
     const counts = toolResult?.counts || {};
@@ -287,14 +306,15 @@ function getStudentToolData(tool, message, context) {
     return { available: true, schemeName, schemeShortName, status, appliedDate, pendingAction };
   }
   if (tool === 'getScholarshipInfo') {
-    const scheme = findScheme(message, context, false);
+    const scheme = findScheme(message, { scholarships: SCHOLARSHIP_CATALOG }, false);
+    const note = 'Eligibility has not been assessed. Share your education level, category, state, and course to help narrow the options; confirm eligibility against official scheme guidelines.';
     return scheme
-      ? { available: true, scheme }
+      ? { available: true, scheme, eligibilityAssessed: false, note }
       : {
           available: true,
-          schemes: context.scholarships.map(({ id, name, shortName }) => ({ id, name, shortName })),
+          schemes: SCHOLARSHIP_CATALOG,
           eligibilityAssessed: false,
-          note: 'Catalog options only; this result does not assess eligibility.',
+          note,
         };
   }
   if (tool === 'getDocuments') {

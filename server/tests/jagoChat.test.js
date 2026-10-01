@@ -154,7 +154,15 @@ test('student and admin tools return structured backend data without candidate o
 
   const scholarshipInfo = jagoChatRouter.getStudentToolData('getScholarshipInfo', 'Which scholarship can I apply for?', studentContext);
   assert.equal(scholarshipInfo.eligibilityAssessed, false);
-  assert.equal(scholarshipInfo.schemes[0].id, 'post-matric-st');
+  assert.equal(scholarshipInfo.schemes.length, 5);
+  assert.deepEqual(scholarshipInfo.schemes.map(({ shortName }) => shortName), [
+    'Pre-Matric Scholarship',
+    'Post-Matric Scholarship',
+    'Top Class Scholarship',
+    'National Fellowship (NFST)',
+    'National Overseas Scholarship',
+  ]);
+  assert.match(scholarshipInfo.note, /Eligibility has not been assessed/);
 
   const documents = jagoChatRouter.getStudentToolData('getDocuments', 'What documents do I need?', studentContext);
   assert.deepEqual(documents.requiredDocuments, ['ST Community / Caste Certificate']);
@@ -166,6 +174,49 @@ test('student and admin tools return structured backend data without candidate o
   assert.equal(adminSummary.potentialUnreached, 2);
   assert.equal('candidates' in adminSummary, false);
   assert.equal('studentRef' in adminSummary, false);
+});
+
+test('generic scholarship discovery returns the full catalog without assessing eligibility', () => {
+  const questions = [
+    'Which scholarship can I apply for?',
+    'What scholarships are available?',
+    'Show me the scholarships',
+    'What schemes does JAGO support?',
+  ];
+  const expectedSchemeIds = ['pre-matric-st', 'post-matric-st', 'top-class-st', 'nfst', 'nos-st'];
+
+  for (const question of questions) {
+    const result = jagoChatRouter.getStudentToolData('getScholarshipInfo', question, {});
+    assert.equal(result.available, true);
+    assert.deepEqual(result.schemes.map(({ id }) => id), expectedSchemeIds);
+    assert.equal(result.eligibilityAssessed, false);
+    assert.match(result.note, /Share your education level, category, state, and course/);
+  }
+});
+
+test('keyless scholarship fallback lists all catalog schemes and does not claim eligibility', async (t) => {
+  const hadKey = Object.hasOwn(process.env, 'GEMINI_API_KEY');
+  const savedKey = process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
+  const server = await startChatServer();
+  t.after(async () => {
+    if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    if (hadKey) process.env.GEMINI_API_KEY = savedKey;
+    else delete process.env.GEMINI_API_KEY;
+  });
+
+  const response = await postChat(`http://127.0.0.1:${server.address().port}`, {
+    message: 'Which scholarship can I apply for?', role: 'student', language: 'en',
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.match(body.answer, /Pre-Matric Scholarship/);
+  assert.match(body.answer, /Post-Matric Scholarship/);
+  assert.match(body.answer, /Top Class Scholarship/);
+  assert.match(body.answer, /NFST/);
+  assert.match(body.answer, /NOS/);
+  assert.match(body.answer, /Eligibility has not yet been assessed/);
 });
 
 test('chat endpoint accepts known student and admin prompts without Gemini and returns deterministic synthetic data', async (t) => {
