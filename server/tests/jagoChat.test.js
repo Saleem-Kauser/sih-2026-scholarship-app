@@ -114,6 +114,57 @@ test('Gemini service failures return only a safe user-facing error', async (t) =
   assert.doesNotMatch(JSON.stringify(body), /private provider diagnostic|test-key-only/);
 });
 
+test('post-classification diagnostics show tool and answer stages before a 429 response', async (t) => {
+  const originalKey = process.env.GEMINI_API_KEY;
+  const originalClassifier = geminiService.classifyQuestion;
+  const originalAnswer = geminiService.answerQuestion;
+  const originalInfo = console.info;
+  const originalError = console.error;
+  const logEntries = [];
+  process.env.GEMINI_API_KEY = 'test-key-only';
+  console.info = (...args) => logEntries.push(args);
+  console.error = (...args) => logEntries.push(args);
+  geminiService.classifyQuestion = async () => ({
+    intent: 'SCHOLARSHIP_INFO',
+    tool: 'getScholarshipInfo',
+    requiresTool: true,
+    allowedTools: ['getApplicationStatus', 'getScholarshipInfo', 'getDocuments', 'getVerificationStats'],
+  });
+  geminiService.answerQuestion = async (...args) => {
+    args[6]();
+    const error = new Error('Too many requests');
+    error.status = 429;
+    throw error;
+  };
+
+  const server = await startChatServer();
+  t.after(async () => {
+    if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    geminiService.classifyQuestion = originalClassifier;
+    geminiService.answerQuestion = originalAnswer;
+    console.info = originalInfo;
+    console.error = originalError;
+    if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = originalKey;
+  });
+
+  const response = await postChat(`http://127.0.0.1:${server.address().port}`, {
+    message: 'Which scholarship can I apply for?', role: 'student', language: 'en',
+  });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).code, 'AI_CAPACITY');
+
+  const output = JSON.stringify(logEntries);
+  assert.match(output, /classification complete/);
+  assert.match(output, /tool execution started/);
+  assert.match(output, /tool execution succeeded/);
+  assert.match(output, /answer generation started/);
+  assert.match(output, /second Gemini request started/);
+  assert.match(output, /request failed/);
+  assert.match(output, /"status":"429"/);
+});
+
 test('role allowlists restrict student tools and expose admin tools only to admin role', () => {
   assert.equal(jagoChatRouter.isToolAllowed('student', 'getApplicationStatus'), true);
   assert.equal(jagoChatRouter.isToolAllowed('student', 'getScholarshipInfo'), true);

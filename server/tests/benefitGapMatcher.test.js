@@ -170,7 +170,63 @@ test('Gemini failure diagnostics redact prompt data, identifiers, and credential
 
   const output = JSON.stringify(logEntries);
   assert.match(output, /classifyQuestion/);
-  assert.match(output, /gemini-3\.5-flash-lite/);
   assert.match(output, /400/);
   assert.doesNotMatch(output, /test-gemini-secret|STU-123|student@example\.com|What is status/);
+});
+
+test('successful Gemini transport followed by invalid classifier JSON is logged as parse failure', async () => {
+  const originalError = console.error;
+  const logEntries = [];
+  console.error = (...args) => logEntries.push(args);
+
+  try {
+    await assert.rejects(classifyQuestion('private question text', 'student', 'en', () => ({
+      models: { generateContent: async () => ({ text: '{ invalid private response' }) },
+    })));
+  } finally {
+    console.error = originalError;
+  }
+
+  const output = JSON.stringify(logEntries);
+  assert.match(output, /parseClassification/);
+  assert.match(output, /response processing failed/);
+  assert.doesNotMatch(output, /private question text|invalid private response/);
+});
+
+test('second Gemini request is logged as answerQuestion and HTTP 429 is RATE_LIMITED', async () => {
+  const originalError = console.error;
+  const originalInfo = console.info;
+  const logEntries = [];
+  console.error = (...args) => logEntries.push(args);
+  console.info = (...args) => logEntries.push(args);
+  let secondRequestStarted = false;
+
+  try {
+    await assert.rejects(answerQuestion(
+      'Which scholarship can I apply for?',
+      'student',
+      'en',
+      { available: true, schemes: [] },
+      { intent: 'SCHOLARSHIP_INFO', tool: 'getScholarshipInfo', allowedTools: ['getScholarshipInfo'] },
+      () => ({
+        models: {
+          generateContent: async () => {
+            const error = new Error('Too many requests');
+            error.status = 429;
+            throw error;
+          },
+        },
+      }),
+      () => { secondRequestStarted = true; }
+    ), (error) => error.status === 429);
+  } finally {
+    console.error = originalError;
+    console.info = originalInfo;
+  }
+
+  const output = JSON.stringify(logEntries);
+  assert.equal(secondRequestStarted, true);
+  assert.match(output, /request started.*answerQuestion/);
+  assert.match(output, /\[JAGO_GEMINI\] RATE_LIMITED/);
+  assert.match(output, /"status":"429"/);
 });

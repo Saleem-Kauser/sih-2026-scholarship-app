@@ -371,6 +371,26 @@ function getAdminToolData(tool, message, context) {
   return { available: false, reason: 'Tool is unavailable.' };
 }
 
+function routeErrorDetails(error, requestMessage) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  let message = typeof error?.message === 'string' ? error.message : 'Unknown error';
+  if (apiKey) message = message.split(apiKey).join('[REDACTED]');
+  if (requestMessage) message = message.split(requestMessage).join('[REDACTED_INPUT]');
+  message = message
+    .replace(/Bearer\s+[^\s"']+/gi, 'Bearer [REDACTED]')
+    .replace(/([?&](?:key|api_key|token)=)[^&\s]+/gi, '$1[REDACTED]')
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[REDACTED_EMAIL]')
+    .replace(/\b(?:STU|STUDENT)[-_ ]?\d{3,}\b/gi, '[REDACTED_ID]')
+    .replace(/\b\+?\d[\d\s().-]{8,}\d\b/g, '[REDACTED_NUMBER]')
+    .slice(0, 300);
+  const status = error?.status ?? error?.statusCode;
+  return {
+    name: typeof error?.name === 'string' ? error.name.slice(0, 80) : 'Error',
+    status: typeof status === 'number' || typeof status === 'string' ? String(status).slice(0, 40) : undefined,
+    message,
+  };
+}
+
 router.post('/chat', ipLimiter, sessionLimiter, async (req, res) => {
   const { message, role, language } = req.body || {};
   if (typeof message !== 'string' || !message.trim()) {
@@ -390,6 +410,7 @@ router.post('/chat', ipLimiter, sessionLimiter, async (req, res) => {
     ? sanitizeStudentContext(req.body.studentContext)
     : sanitizeAdminContext(req.body.adminContext);
 
+  let stage = 'classifyQuestion';
   try {
     let intent;
     const shouldUseDeterministicFallback = !process.env.GEMINI_API_KEY;
@@ -399,10 +420,13 @@ router.post('/chat', ipLimiter, sessionLimiter, async (req, res) => {
     } else {
       intent = await geminiService.classifyQuestion(message.trim(), role, language);
     }
+    console.info('[JAGO_CHAT] classification complete', { stage, tool: intent.tool });
 
+    stage = 'validateTool';
     if (intent.tool !== 'none' && !isToolAllowed(role, intent.tool)) {
       return res.status(403).json({ code: 'TOOL_FORBIDDEN', error: 'That JAGO function is not available for this prototype role.' });
     }
+    console.info('[JAGO_CHAT] tool validation succeeded', { stage, tool: intent.tool });
     if (intent.tool === 'none') {
       const unknownByLanguage = {
         en: 'I do not have enough prototype data to answer that. Please ask about application status, documents, coverage summary, or a listed synthetic candidate.',
@@ -412,23 +436,43 @@ router.post('/chat', ipLimiter, sessionLimiter, async (req, res) => {
       return res.json({ answer: unknownByLanguage[language], intent: intent.intent, tool: 'none', language, source: 'backend-tool+gemini', prototypeRole: true });
     }
 
-    const toolResult = intent.tool === 'none'
-      ? { available: false, reason: 'No approved data lookup matched the question.' }
-      : getDeterministicToolData(intent.tool, message.trim(), context, role);
+    stage = 'executeTool';
+    console.info('[JAGO_CHAT] tool execution started', { stage, tool: intent.tool });
+    const toolResult = getDeterministicToolData(intent.tool, message.trim(), context, role);
+    console.info('[JAGO_CHAT] tool execution succeeded', { stage, tool: intent.tool });
 
-    const responseText = shouldUseDeterministicFallback
-      ? getDeterministicAnswer(message.trim(), role, language, toolResult, intent)
-      : (await geminiService.answerQuestion(message.trim(), role, language, toolResult, intent)).answer;
+    let responseText;
+    if (shouldUseDeterministicFallback) {
+      stage = 'formatFallback';
+      responseText = getDeterministicAnswer(message.trim(), role, language, toolResult, intent);
+    } else {
+      stage = 'answerQuestion';
+      console.info('[JAGO_CHAT] answer generation started', { stage });
+      responseText = (await geminiService.answerQuestion(
+        message.trim(), role, language, toolResult, intent, undefined,
+        () => { console.info('[JAGO_CHAT] second Gemini request started', { stage }); }
+      )).answer;
+      console.info('[JAGO_CHAT] answer generation succeeded', { stage });
+    }
 
-    return res.json({
+    stage = 'responseConstruction';
+    console.info('[JAGO_CHAT] final response construction started', { stage });
+    const responseBody = {
       answer: responseText,
       intent: intent.intent,
       tool: intent.tool,
       language,
       source: shouldUseDeterministicFallback ? 'backend-local-deterministic' : 'backend-tool+gemini',
       prototypeRole: true,
-    });
+    };
+    console.info('[JAGO_CHAT] final response construction succeeded', { stage });
+    return res.json(responseBody);
   } catch (error) {
+    const failureStage = error?.jagoStage || stage;
+    console.error('[JAGO_CHAT] request failed', {
+      stage: failureStage,
+      ...routeErrorDetails(error, message),
+    });
     if (error.code === 'AI_NOT_CONFIGURED') {
       return res.status(503).json({ code: 'AI_NOT_CONFIGURED', error: 'JAGO AI is not configured on this backend.' });
     }
@@ -439,7 +483,6 @@ router.post('/chat', ipLimiter, sessionLimiter, async (req, res) => {
     if (messageText.includes('429') || messageText.includes('resource_exhausted') || messageText.includes('503')) {
       return res.status(503).json({ code: 'AI_CAPACITY', error: 'JAGO AI is temporarily busy. Please try again shortly.' });
     }
-    console.error('[JAGO chat] Request failed. Internal model details are suppressed.');
     return res.status(503).json({ code: 'AI_UNAVAILABLE', error: 'JAGO AI is temporarily unavailable.' });
   }
 });

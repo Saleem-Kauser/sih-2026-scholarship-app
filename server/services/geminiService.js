@@ -49,27 +49,31 @@ function sanitizeGeminiError(error, prompt) {
   return {
     name: typeof error?.name === 'string' ? error.name.slice(0, 80) : 'Error',
     message,
-    status: typeof error?.status === 'number' || typeof error?.status === 'string'
-      ? String(error.status).slice(0, 40)
+    status: typeof (error?.status ?? error?.statusCode) === 'number' || typeof (error?.status ?? error?.statusCode) === 'string'
+      ? String(error.status ?? error.statusCode).slice(0, 40)
       : undefined,
   };
 }
 
-async function requestGemini(stage, payload, clientFactory) {
+async function requestGemini(stage, payload, clientFactory, onRequestStarted) {
   const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
   const prompt = payload.contents;
-  console.info('[JAGO_GEMINI] request started', { stage, model });
   try {
     const ai = clientFactory();
+    console.info('[JAGO_GEMINI] request started', { stage, model });
+    onRequestStarted?.();
     const response = await ai.models.generateContent({ model, contents: prompt });
     console.info('[JAGO_GEMINI] request succeeded', { stage, model });
     return response;
   } catch (error) {
-    console.error('[JAGO_GEMINI] request failed', {
+    const diagnostic = {
       stage,
-      model,
       ...sanitizeGeminiError(error, prompt),
-    });
+    };
+    if (diagnostic.status === '429') {
+      console.error('[JAGO_GEMINI] RATE_LIMITED');
+    }
+    console.error('[JAGO_GEMINI] request failed', diagnostic);
     throw error;
   }
 }
@@ -77,27 +81,37 @@ async function requestGemini(stage, payload, clientFactory) {
 async function classifyQuestion(message, role, language, clientFactory = createClient) {
   const tools = role === 'admin' ? ADMIN_TOOLS : STUDENT_TOOLS;
   const allowed = [...tools, 'none'];
-  const response = await requestGemini('classifyQuestion', {
-    contents: [
-      'Classify the user question for JAGO. Return only a JSON object with string fields intent and tool, and boolean field requiresTool. ',
-      `Role=${role}; language=${languageName(language)}. `,
-      `Allowed tools for this role: ${tools.join(', ')}. The tool must be one of these or none. Choose none if no listed tool is needed. `,
-      'Set requiresTool to true exactly when tool is not none. ',
-      'Never infer government or scholarship facts. The tool lookup is the source of truth. ',
-      `Question: ${message}`,
-    ].join(''),
-  }, clientFactory);
+  const prompt = [
+    'Classify the user question for JAGO. Return only a JSON object with string fields intent and tool, and boolean field requiresTool. ',
+    `Role=${role}; language=${languageName(language)}. `,
+    `Allowed tools for this role: ${tools.join(', ')}. The tool must be one of these or none. Choose none if no listed tool is needed. `,
+    'Set requiresTool to true exactly when tool is not none. ',
+    'Never infer government or scholarship facts. The tool lookup is the source of truth. ',
+    `Question: ${message}`,
+  ].join('');
+  const response = await requestGemini('classifyQuestion', { contents: prompt }, clientFactory);
 
-  const parsed = parseJson(response.text);
-  if (!allowed.includes(parsed.tool) || typeof parsed.requiresTool !== 'boolean' || typeof parsed.intent !== 'string') {
-    throw new Error('Invalid intent response.');
+  console.info('[JAGO_GEMINI] response parsing started', { stage: 'classifyQuestion' });
+  try {
+    const parsed = parseJson(response.text);
+    if (!allowed.includes(parsed.tool) || typeof parsed.requiresTool !== 'boolean' || typeof parsed.intent !== 'string') {
+      throw new Error('Invalid intent response.');
+    }
+    if ((parsed.tool === 'none') === parsed.requiresTool) throw new Error('Inconsistent intent response.');
+    console.info('[JAGO_GEMINI] response parsing succeeded', { stage: 'classifyQuestion' });
+    return { ...parsed, allowedTools: tools };
+  } catch (error) {
+    error.jagoStage = 'parseClassification';
+    console.error('[JAGO_GEMINI] response processing failed', {
+      stage: 'parseClassification',
+      ...sanitizeGeminiError(error, prompt),
+    });
+    throw error;
   }
-  if ((parsed.tool === 'none') === parsed.requiresTool) throw new Error('Inconsistent intent response.');
-  return { ...parsed, allowedTools: tools };
 }
 
-async function generateGroundedResponse(message, language, toolResult, clientFactory = createClient) {
-  const response = await requestGemini('generateGroundedResponse', {
+async function generateGroundedResponse(message, language, toolResult, clientFactory = createClient, onRequestStarted) {
+  const response = await requestGemini('answerQuestion', {
     contents: [
       'You are JAGO, a concise scholarship assistant. Follow these rules strictly: ',
       'Never invent application status, eligibility, beneficiary counts, or government statistics. ',
@@ -109,20 +123,24 @@ async function generateGroundedResponse(message, language, toolResult, clientFac
       `User question: ${message}\n`,
       `Approved backend tool result (source of truth): ${JSON.stringify(toolResult)}`,
     ].join(''),
-  }, clientFactory);
+  }, clientFactory, onRequestStarted);
   const text = response.text;
   if (typeof text !== 'string' || !text.trim()) throw new Error('Model returned no response.');
   return text.trim();
 }
 
-async function answerQuestion(message, role, language, toolResult, routedIntent, clientFactory = createClient) {
+async function answerQuestion(message, role, language, toolResult, routedIntent, clientFactory = createClient, onRequestStarted) {
   const intent = routedIntent || await classifyQuestion(message, role, language, clientFactory);
   if (intent.tool !== 'none' && !intent.allowedTools.includes(intent.tool)) {
     const error = new Error('Requested tool is not allowed for this role.');
     error.code = 'TOOL_FORBIDDEN';
     throw error;
   }
-  return { intent: intent.intent, tool: intent.tool, answer: await generateGroundedResponse(message, language, toolResult, clientFactory) };
+  return {
+    intent: intent.intent,
+    tool: intent.tool,
+    answer: await generateGroundedResponse(message, language, toolResult, clientFactory, onRequestStarted),
+  };
 }
 
 module.exports = { classifyQuestion, answerQuestion, STUDENT_TOOLS, ADMIN_TOOLS };
